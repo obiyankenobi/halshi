@@ -37,11 +37,13 @@ export class HathorRPCService {
 
     // Use custom request function if provided (e.g., MetaMask)
     if (this.customRequest) {
+      console.debug(`[hathorRPC] → ${method} (custom transport)`, params);
       try {
         const result = await this.customRequest<T>(method, params);
+        console.debug(`[hathorRPC] ← ${method} ok`, result);
         return result;
       } catch (error: any) {
-        console.error('RPC request failed:', error);
+        console.error(`[hathorRPC] ← ${method} FAILED:`, error);
         throw new Error(error?.message || 'RPC request failed');
       }
     }
@@ -50,6 +52,12 @@ export class HathorRPCService {
     if (!this.client || !this.session) {
       throw new Error('Wallet not connected. Please connect your wallet.');
     }
+
+    const relayerConnected = (this.client.core?.relayer as any)?.connected;
+    console.debug(
+      `[hathorRPC] → ${method} (walletconnect, topic ${this.session.topic.slice(0, 8)}…, relayer connected: ${relayerConnected})`,
+      params
+    );
 
     try {
       const result = await this.client.request<T>({
@@ -61,9 +69,10 @@ export class HathorRPCService {
         },
       });
 
+      console.debug(`[hathorRPC] ← ${method} ok`, result);
       return result;
     } catch (error: any) {
-      console.error('RPC request failed:', error);
+      console.error(`[hathorRPC] ← ${method} FAILED:`, error);
       throw new Error(error?.message || 'RPC request failed');
     }
   }
