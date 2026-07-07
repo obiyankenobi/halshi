@@ -109,7 +109,7 @@ export default function CreateMarketPage() {
       <Header />
 
       <main className="shell py-10 max-w-2xl">
-        <p className="microlabel text-accent mb-2">// new nano contract</p>
+        <p className="microlabel text-accent mb-2">{'// new nano contract'}</p>
         <h2 className="text-4xl font-bold text-snow tracking-tight mb-3">Create market</h2>
         <p className="text-fog mb-10">
           Each market is a nano contract on Hathor. You become its oracle: after the deadline, you

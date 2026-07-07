@@ -52,6 +52,11 @@ Key modules:
    The app expects the fullnode API at `http://localhost:49180/v1a`
    (`NEXT_PUBLIC_HATHOR_NODE_URL_LOCALNET`).
 
+## Deploying
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) — covers every config field, publishing the blueprint on
+testnet/mainnet, and running on a VPS (Docker or systemd).
+
 ## Wallets
 
 - **Reown / WalletConnect:** set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (free at
