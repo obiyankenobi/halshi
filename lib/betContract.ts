@@ -259,9 +259,10 @@ export async function placeBet(
  * Resolve a market (oracle only): sign the winning outcome with the wallet,
  * then call set_result with the SignedData argument.
  *
- * The SignedData "user format" expected by wallets is
- * `{ type: 'str', signature: '<hex>', value: '<outcome>' }`
- * (see @hathor/wallet-lib nano_contracts/fields/signedData.ts).
+ * hathor-rpc-lib returns `{ type, response: { data, signedData, oracle } }`
+ * where `signedData` is the IUserSignedData object
+ * (`{ type: 'str', signature: '<hex>', value: '<outcome>' }`) — exactly the
+ * "user format" argument set_result expects, so it is passed through as-is.
  */
 export async function resolveMarket(
   rpc: HathorRPCService,
@@ -272,20 +273,31 @@ export async function resolveMarket(
     network?: Network;
   }
 ): Promise<string> {
-  const signed = await rpc.signOracleData({
+  const signed: any = await rpc.signOracleData({
     network: rpcNetworkName(params.network),
     nc_id: params.ncId,
     oracle: params.oracleAddress,
     data: params.result,
   });
-  const signature = (signed as any)?.signature ?? (signed as any)?.response?.signature;
-  if (!signature) throw new Error('wallet did not return an oracle signature');
+  console.debug('htr_signOracleData response:', signed);
+
+  const payload = signed?.response ?? signed;
+  let signedData = payload?.signedData;
+  if (!signedData && payload?.signature) {
+    // Older/other wallets may return a flat signature; build the arg ourselves.
+    signedData = { type: 'str', signature: payload.signature, value: params.result };
+  }
+  if (!signedData) {
+    throw new Error(
+      `wallet did not return signed oracle data (got: ${JSON.stringify(signed)?.slice(0, 300)})`
+    );
+  }
 
   const result = await rpc.sendNanoContractTx({
     network: rpcNetworkName(params.network),
     method: 'set_result',
     nc_id: params.ncId,
-    args: [{ type: 'str', signature, value: params.result }],
+    args: [signedData],
     actions: [],
     push_tx: true,
   });

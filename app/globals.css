@@ -3,14 +3,40 @@
 @tailwind utilities;
 
 :root {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
+  --background: #0a0c10;
+  --foreground: #edf0f5;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--background);
+  /* faint blueprint grid + a lime glow bleeding in from the top */
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(200, 245, 63, 0.07), transparent),
+    linear-gradient(rgba(138, 147, 166, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(138, 147, 166, 0.045) 1px, transparent 1px);
+  background-size: 100% 100%, 44px 44px, 44px 44px;
+  font-family: var(--font-display), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+::selection {
+  background: #c8f53f;
+  color: #0a0c10;
+}
+
+/* Page shell: everything lives inside a 1200px column */
+.shell {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+/* Micro-label: uppercase mono captions used for metadata */
+.microlabel {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 @keyframes bounce-once {

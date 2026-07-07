@@ -2,6 +2,28 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
   return inputs.filter(Boolean).join(' ')
 }
 
+export class CancelledError extends Error {
+  constructor() {
+    super('cancelled');
+    this.name = 'CancelledError';
+  }
+}
+
+/**
+ * Wrap a promise so the awaiting flow can be abandoned from the UI.
+ * Needed for wallet RPC prompts: if the user ignores the prompt (neither
+ * approves nor rejects), the request promise never settles and would
+ * otherwise wedge the calling component in its busy state.
+ */
+export function cancellable<T>(promise: Promise<T>): { promise: Promise<T>; cancel: () => void } {
+  let cancel!: () => void;
+  const cancelPromise = new Promise<never>((_, reject) => {
+    cancel = () => reject(new CancelledError());
+  });
+  promise.catch(() => {}); // avoid unhandled rejection if cancelled first
+  return { promise: Promise.race([promise, cancelPromise]), cancel };
+}
+
 export function formatAddress(address: string): string {
   if (!address) return '';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;

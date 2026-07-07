@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import {
   MarketChainState,
@@ -9,7 +9,7 @@ import {
   getMaxWithdrawal,
   waitForConfirmation,
 } from '@/lib/betContract';
-import { formatTokenAmount } from '@/lib/utils';
+import { CancelledError, cancellable, formatTokenAmount } from '@/lib/utils';
 import { useToast } from '@/lib/toast';
 
 interface ClaimPanelProps {
@@ -24,6 +24,7 @@ export default function ClaimPanel({ meta, state, onClaimed }: ClaimPanelProps) 
   const { addToast } = useToast();
   const [claimable, setClaimable] = useState<bigint | null>(null);
   const [busy, setBusy] = useState<'signing' | 'confirming' | null>(null);
+  const cancelRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!address) {
@@ -39,11 +40,15 @@ export default function ClaimPanel({ meta, state, onClaimed }: ClaimPanelProps) 
     if (!address || !claimable || claimable <= 0n) return;
     try {
       setBusy('signing');
-      const txId = await claimWinnings(rpcService, {
-        ncId: meta.ncId,
-        address,
-        amountCents: claimable,
-      });
+      const signing = cancellable(
+        claimWinnings(rpcService, {
+          ncId: meta.ncId,
+          address,
+          amountCents: claimable,
+        })
+      );
+      cancelRef.current = signing.cancel;
+      const txId = await signing.promise;
       setBusy('confirming');
       const { confirmed, voided } = await waitForConfirmation(txId);
       if (voided) throw new Error('transaction was voided by the network');
@@ -52,41 +57,48 @@ export default function ClaimPanel({ meta, state, onClaimed }: ClaimPanelProps) 
       refreshBalance();
       onClaimed();
     } catch (error: any) {
-      addToast(error?.message || 'Failed to claim winnings', 'error');
+      if (error instanceof CancelledError) {
+        addToast('Claim abandoned — also reject the pending prompt in your wallet', 'info');
+      } else {
+        addToast(error?.message || 'Failed to claim winnings', 'error');
+      }
     } finally {
+      cancelRef.current = null;
       setBusy(null);
     }
   };
 
   if (!address) {
     return (
-      <div className="bg-slate-800 border border-slate-700 rounded-lg p-5">
-        <h3 className="text-white font-semibold mb-1">
-          Resolved: <span className="text-blue-400">{state.finalResult}</span>
+      <div className="bg-panel border border-line rounded-2xl p-6">
+        <p className="microlabel text-fog mb-2">resolved</p>
+        <h3 className="text-snow font-semibold mb-1">
+          Result: <span className="text-accent">{state.finalResult}</span>
         </h3>
-        <p className="text-sm text-slate-400">Connect your wallet to claim winnings.</p>
+        <p className="text-sm text-fog">Connect your wallet to claim winnings.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-800 border border-green-500/30 rounded-lg p-5">
-      <h3 className="text-white font-semibold mb-1">
-        Resolved: <span className="text-blue-400">{state.finalResult}</span>
+    <div className="bg-panel border border-accent/40 rounded-2xl p-6">
+      <p className="microlabel text-accent mb-2">resolved</p>
+      <h3 className="text-snow font-semibold mb-3">
+        Result: <span className="text-accent">{state.finalResult}</span>
       </h3>
 
       {claimable === null ? (
-        <p className="text-sm text-slate-400">Checking your winnings…</p>
+        <p className="text-sm text-fog">Checking your winnings…</p>
       ) : claimable > 0n ? (
         <>
-          <p className="text-sm text-slate-400 mb-4">
+          <p className="text-sm text-fog mb-4">
             You can withdraw{' '}
-            <span className="text-green-400 font-semibold">{formatTokenAmount(claimable)} HTR</span>.
+            <span className="font-mono text-accent">{formatTokenAmount(claimable)} HTR</span>.
           </p>
           <button
             onClick={handleClaim}
             disabled={busy !== null}
-            className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg font-medium transition-colors"
+            className="w-full py-3 bg-accent hover:bg-accent-dim disabled:opacity-40 disabled:pointer-events-none text-ink rounded-xl font-semibold transition-colors"
           >
             {busy === 'signing'
               ? 'Waiting for wallet signature…'
@@ -94,9 +106,17 @@ export default function ClaimPanel({ meta, state, onClaimed }: ClaimPanelProps) 
                 ? 'Waiting for confirmation…'
                 : `Claim ${formatTokenAmount(claimable)} HTR`}
           </button>
+          {busy === 'signing' && (
+            <button
+              onClick={() => cancelRef.current?.()}
+              className="w-full mt-2 py-1.5 text-sm text-fog hover:text-snow transition-colors"
+            >
+              Cancel
+            </button>
+          )}
         </>
       ) : (
-        <p className="text-sm text-slate-400">Nothing to claim for this address.</p>
+        <p className="text-sm text-fog">Nothing to claim for this address.</p>
       )}
     </div>
   );

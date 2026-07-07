@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { useWallet } from '@/contexts/WalletContext';
 import { useHathor } from '@/contexts/HathorContext';
 import { createMarket, waitForConfirmation } from '@/lib/betContract';
+import { CancelledError, cancellable } from '@/lib/utils';
 import { useToast } from '@/lib/toast';
+
+const inputStyles =
+  'w-full bg-inset border border-line rounded-xl px-4 py-2.5 text-snow placeholder-fog/40 focus:outline-none focus:border-accent';
 
 export default function CreateMarketPage() {
   const router = useRouter();
@@ -19,6 +23,7 @@ export default function CreateMarketPage() {
   const [outcomes, setOutcomes] = useState<string[]>(['Yes', 'No']);
   const [deadline, setDeadline] = useState('');
   const [step, setStep] = useState<'form' | 'signing' | 'confirming' | 'registering'>('form');
+  const cancelRef = useRef<(() => void) | null>(null);
 
   const setOutcome = (index: number, value: string) => {
     setOutcomes((prev) => prev.map((o, i) => (i === index ? value : o)));
@@ -53,7 +58,10 @@ export default function CreateMarketPage() {
 
     try {
       setStep('signing');
-      const ncId = await createMarket(rpcService, { oracleAddress: address, dateLastBet });
+      const signing = cancellable(createMarket(rpcService, { oracleAddress: address, dateLastBet }));
+      cancelRef.current = signing.cancel;
+      const ncId = await signing.promise;
+      cancelRef.current = null;
 
       setStep('confirming');
       const { confirmed, voided } = await waitForConfirmation(ncId);
@@ -80,7 +88,12 @@ export default function CreateMarketPage() {
       addToast('Market created!', 'success');
       router.push(`/market/${ncId}`);
     } catch (error: any) {
-      addToast(error?.message || 'Failed to create market', 'error');
+      if (error instanceof CancelledError) {
+        addToast('Creation abandoned — also reject the pending prompt in your wallet', 'info');
+      } else {
+        addToast(error?.message || 'Failed to create market', 'error');
+      }
+      cancelRef.current = null;
       setStep('form');
     }
   };
@@ -92,51 +105,52 @@ export default function CreateMarketPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen">
       <Header />
 
-      <main className="container mx-auto px-6 py-8 max-w-2xl">
-        <h2 className="text-3xl font-bold text-white mb-2">Create market</h2>
-        <p className="text-slate-400 mb-8">
+      <main className="shell py-10 max-w-2xl">
+        <p className="microlabel text-accent mb-2">// new nano contract</p>
+        <h2 className="text-4xl font-bold text-snow tracking-tight mb-3">Create market</h2>
+        <p className="text-fog mb-10">
           Each market is a nano contract on Hathor. You become its oracle: after the deadline, you
           sign the winning outcome to settle bets.
         </p>
 
         {!isConnected && (
-          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-lg p-4 mb-6 text-sm">
+          <div className="bg-ember/10 border border-ember/40 text-ember rounded-xl p-4 mb-6 text-sm">
             Connect your wallet to create a market.
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-7">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Question</label>
+            <p className="microlabel text-fog mb-2">question</p>
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Will HTR reach $1 by the end of 2026?"
               disabled={busy}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className={inputStyles}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Description <span className="text-slate-500">(optional)</span>
-            </label>
+            <p className="microlabel text-fog mb-2">
+              description <span className="text-fog/50">(optional)</span>
+            </p>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Resolution criteria, sources, details…"
               rows={3}
               disabled={busy}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className={inputStyles}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Outcomes</label>
+            <p className="microlabel text-fog mb-2">outcomes</p>
             <div className="space-y-2">
               {outcomes.map((outcome, index) => (
                 <div key={index} className="flex gap-2">
@@ -146,14 +160,14 @@ export default function CreateMarketPage() {
                     onChange={(e) => setOutcome(index, e.target.value)}
                     placeholder={`Outcome ${index + 1}`}
                     disabled={busy}
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className={inputStyles}
                   />
                   {outcomes.length > 2 && (
                     <button
                       type="button"
                       onClick={() => removeOutcome(index)}
                       disabled={busy}
-                      className="px-3 text-slate-400 hover:text-red-400 transition-colors"
+                      className="px-3 text-fog hover:text-ember transition-colors"
                       aria-label={`Remove outcome ${index + 1}`}
                     >
                       ✕
@@ -166,31 +180,41 @@ export default function CreateMarketPage() {
               type="button"
               onClick={addOutcome}
               disabled={busy}
-              className="mt-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+              className="mt-3 text-sm text-accent hover:text-accent-dim transition-colors"
             >
               + Add outcome
             </button>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Betting deadline</label>
+            <p className="microlabel text-fog mb-2">betting deadline</p>
             <input
               type="datetime-local"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
               disabled={busy}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 [color-scheme:dark]"
+              className={`${inputStyles} font-mono [color-scheme:dark]`}
             />
-            <p className="text-xs text-slate-500 mt-1">No more bets are accepted after this time.</p>
+            <p className="text-xs text-fog/60 mt-1.5">No more bets are accepted after this time.</p>
           </div>
 
           <button
             type="submit"
             disabled={busy || !isConnected}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg font-medium transition-colors"
+            className="w-full py-3.5 bg-accent hover:bg-accent-dim disabled:opacity-40 disabled:pointer-events-none text-ink rounded-xl font-semibold transition-colors"
           >
             {busy ? stepLabel[step as keyof typeof stepLabel] : 'Create market'}
           </button>
+
+          {step === 'signing' && (
+            <button
+              type="button"
+              onClick={() => cancelRef.current?.()}
+              className="w-full py-1.5 text-sm text-fog hover:text-snow transition-colors"
+            >
+              Cancel
+            </button>
+          )}
         </form>
       </main>
     </div>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useHathor } from '@/contexts/HathorContext';
 import { formatAddress } from '@/lib/utils';
 import { WalletConnectionModal } from './WalletConnectionModal';
+import Logo from './Logo';
 
 export default function Header() {
   const { isConnected, address, disconnectWallet } = useHathor();
@@ -19,35 +20,35 @@ export default function Header() {
 
   return (
     <>
-      <header className="flex items-center justify-between p-6 border-b border-slate-700">
-        <div className="flex items-center gap-4">
-          <a href="/">
-            <h1 className="text-2xl font-bold text-white">Halshi</h1>
-            <p className="text-sm text-slate-400">Prediction markets on Hathor</p>
+      <header className="border-b border-line bg-ink/70 backdrop-blur sticky top-0 z-10">
+        <div className="shell flex items-center justify-between py-4">
+          <a href="/" className="flex items-center gap-3 group">
+            <Logo size={40} className="group-hover:-translate-y-0.5 transition-transform duration-200" />
+            <span className="text-3xl font-bold tracking-tight text-snow">Halshi</span>
           </a>
-        </div>
 
-        {isConnected ? (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-lg border border-slate-700">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              <span className="text-sm text-slate-300">{formatAddress(address || '')}</span>
+          {isConnected ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-4 py-2 bg-panel rounded-full border border-line">
+                <span className="w-1.5 h-1.5 bg-accent rounded-full"></span>
+                <span className="font-mono text-xs text-snow">{formatAddress(address || '')}</span>
+              </div>
+              <button
+                onClick={handleDisconnect}
+                className="px-4 py-2 text-sm text-fog hover:text-snow border border-line hover:border-fog rounded-full transition-colors"
+              >
+                Disconnect
+              </button>
             </div>
+          ) : (
             <button
-              onClick={handleDisconnect}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              onClick={handleConnect}
+              className="px-5 py-2 bg-accent hover:bg-accent-dim text-ink rounded-full font-semibold text-sm transition-colors"
             >
-              Disconnect
+              Connect Wallet
             </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleConnect}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-          >
-            Connect Wallet
-          </button>
-        )}
+          )}
+        </div>
       </header>
 
       <WalletConnectionModal

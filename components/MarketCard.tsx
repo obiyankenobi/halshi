@@ -6,15 +6,15 @@ import { marketStatus, MarketStatus } from '@/lib/betContract';
 import { formatTokenAmount } from '@/lib/utils';
 
 const statusStyles: Record<MarketStatus, { label: string; className: string }> = {
-  open: { label: 'Open', className: 'bg-green-500/10 text-green-400 border-green-500/30' },
-  closed: { label: 'Awaiting result', className: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
-  resolved: { label: 'Resolved', className: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
+  open: { label: 'Open', className: 'text-accent border-accent/40' },
+  closed: { label: 'Awaiting result', className: 'text-ember border-ember/40' },
+  resolved: { label: 'Resolved', className: 'text-fog border-line' },
 };
 
 export function StatusBadge({ status }: { status: MarketStatus }) {
   const style = statusStyles[status];
   return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${style.className}`}>
+    <span className={`microlabel px-2.5 py-1 rounded-full border ${style.className}`}>
       {style.label}
     </span>
   );
@@ -33,40 +33,51 @@ export default function MarketCard({ market }: { market: MarketWithState }) {
   return (
     <Link
       href={`/market/${meta.ncId}`}
-      className="block bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-slate-500 transition-colors"
+      className="group flex flex-col bg-panel border border-line rounded-2xl p-5 hover:border-accent/50 hover:-translate-y-0.5 transition-all duration-150"
     >
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <h3 className="text-white font-semibold leading-snug line-clamp-2">{meta.question}</h3>
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <h3 className="text-snow font-semibold leading-snug line-clamp-2 group-hover:text-accent transition-colors">
+          {meta.question}
+        </h3>
         <StatusBadge status={status} />
       </div>
 
-      <div className="space-y-2 mb-4">
+      <div className="space-y-2.5 mb-5 flex-1">
         {meta.outcomes.slice(0, 3).map((outcome) => {
           const pool = state?.outcomePools[outcome] ?? 0n;
+          const percent = total > 0n ? Number((pool * 1000n) / total) / 10 : 0;
           const isWinner = state?.finalResult === outcome;
           return (
-            <div key={outcome} className="flex items-center justify-between text-sm">
-              <span className={`truncate ${isWinner ? 'text-blue-400 font-semibold' : 'text-slate-300'}`}>
-                {outcome}
-                {isWinner && ' ✓'}
-              </span>
-              <span className="text-slate-400 font-mono ml-2 shrink-0">{outcomePercent(pool, total)}</span>
+            <div key={outcome}>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className={`truncate ${isWinner ? 'text-accent font-semibold' : 'text-snow/80'}`}>
+                  {outcome}
+                  {isWinner && ' ✓'}
+                </span>
+                <span className="font-mono text-xs text-fog ml-2 shrink-0">{outcomePercent(pool, total)}</span>
+              </div>
+              <div className="h-1 bg-inset rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${isWinner ? 'bg-accent' : 'bg-fog/40'}`}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
             </div>
           );
         })}
         {meta.outcomes.length > 3 && (
-          <div className="text-xs text-slate-500">+{meta.outcomes.length - 3} more outcomes</div>
+          <div className="microlabel text-fog/60">+{meta.outcomes.length - 3} more</div>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-700/60 pt-3">
-        <span>{formatTokenAmount(total)} HTR pool</span>
-        <span>
+      <div className="flex items-center justify-between border-t border-line/60 pt-3">
+        <span className="font-mono text-xs text-fog">{formatTokenAmount(total)} HTR</span>
+        <span className="microlabel text-fog/70">
           {status === 'open'
-            ? `Closes ${new Date(meta.dateLastBet * 1000).toLocaleDateString()}`
+            ? `closes ${new Date(meta.dateLastBet * 1000).toLocaleDateString()}`
             : status === 'closed'
-              ? 'Betting closed'
-              : `Result: ${state?.finalResult}`}
+              ? 'betting closed'
+              : `→ ${state?.finalResult}`}
         </span>
       </div>
     </Link>

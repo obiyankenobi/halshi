@@ -84,7 +84,8 @@ export class HathorRPCService {
     return this.request('htr_sendNanoContractTx', params);
   }
 
-  async signOracleData(params: SignOracleDataParams): Promise<{ data: string; signature: string; oracle: string }> {
+  // Response shape (hathor-rpc-lib): { type, response: { data, signedData, oracle } }
+  async signOracleData(params: SignOracleDataParams): Promise<any> {
     return this.request('htr_signOracleData', params);
   }
 
@@ -119,9 +120,16 @@ export class HathorRPCService {
 
       case 'htr_signOracleData':
         return {
-          data: params?.data || 'mock-result',
-          signature: 'mock-signature-' + Math.random().toString(36).substring(2, 10),
-          oracle: '76a914043c203aa26e6c001243e01a4f84b9d0927bff6088ac',
+          type: 'SignOracleDataResponse',
+          response: {
+            data: params?.data || 'mock-result',
+            signedData: {
+              type: 'str',
+              signature: 'deadbeef' + Math.random().toString(16).substring(2, 10),
+              value: params?.data || 'mock-result',
+            },
+            oracle: params?.oracle || 'WYBwT3xLpDnHNtYZiU52oanupVeDKhAvNp',
+          },
         } as T;
 
       default:
