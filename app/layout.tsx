@@ -8,8 +8,8 @@ import { ToastProvider, Toaster } from '@/lib/toast';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Halshi Tmp',
-  description: 'A decentralized application built on Hathor Network',
+  title: 'Halshi — Prediction Markets on Hathor',
+  description: 'Create markets and bet on outcomes, settled by nano contracts on Hathor Network',
 };
 
 export default function RootLayout({

@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# Local environment (contains keys/IDs — use .env.local.example as template)
+.env.local
+.env*.local
+
+# Local market registry database
+data/
+
+# Misc
+.DS_Store
+.gstack/

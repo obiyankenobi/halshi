@@ -61,12 +61,20 @@ export interface GetAddressParams {
 }
 
 export interface SendNanoContractTxParams {
+  network?: string;
   method: string;
   blueprint_id?: string;
   nc_id?: string;
   actions: NanoContractAction[];
   args: any[];
   push_tx: boolean;
+}
+
+export interface SignOracleDataParams {
+  network: string;
+  nc_id: string;
+  oracle: string;
+  data: string;
 }
 
 export interface NanoContractAction {

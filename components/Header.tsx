@@ -21,10 +21,10 @@ export default function Header() {
     <>
       <header className="flex items-center justify-between p-6 border-b border-slate-700">
         <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Hathor dApp</h1>
-            <p className="text-sm text-slate-400">Built on Hathor Network</p>
-          </div>
+          <a href="/">
+            <h1 className="text-2xl font-bold text-white">Halshi</h1>
+            <p className="text-sm text-slate-400">Prediction markets on Hathor</p>
+          </a>
         </div>
 
         {isConnected ? (

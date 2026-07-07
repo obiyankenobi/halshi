@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { WalletState, ContractTxParams } from '@/types';
 import { HathorRPCService } from '@/lib/hathorRPC';
 import { useUnifiedWallet } from './UnifiedWalletContext';
-import { config } from '@/lib/config';
+import { config, hathorNetworkNames } from '@/lib/config';
 
 interface WalletContextType {
   connected: boolean;
@@ -16,6 +16,7 @@ interface WalletContextType {
   setBalance: (balance: bigint) => void;
   sendContractTx: (params: ContractTxParams) => Promise<any>;
   refreshBalance: () => Promise<void>;
+  rpcService: HathorRPCService;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -93,7 +94,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     try {
       const balanceInfo = await rpcService.getBalance({
-        network: 'testnet',
+        network: hathorNetworkNames[config.defaultNetwork],
         tokens: ['00'],
       });
       const balance = balanceInfo.response[0]?.balance?.unlocked || 0n;
@@ -152,7 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     });
 
     const txParams = {
-      network: 'testnet',
+      network: hathorNetworkNames[config.defaultNetwork],
       nc_id: params.contractId,
       method: params.method,
       args: params.args,
@@ -187,6 +188,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setBalance,
       sendContractTx,
       refreshBalance,
+      rpcService,
     }}>
       {children}
     </WalletContext.Provider>

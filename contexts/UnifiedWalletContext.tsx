@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { WalletAdapter, WalletType } from '@/types/wallet';
 import { useMetaMask } from './MetaMaskContext';
 import { useWalletConnect } from './WalletConnectContext';
+import { config, getChainId } from '@/lib/config';
 
 interface UnifiedWalletContextType {
   adapter: WalletAdapter | null;
@@ -60,7 +61,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
             throw new Error('WalletConnect not connected');
           }
           return walletConnect.client.request<T>({
-            chainId: 'hathor:testnet',
+            chainId: getChainId(config.defaultNetwork),
             topic: walletConnect.session.topic,
             request: { method, params },
           });

@@ -1,6 +1,7 @@
-import { HathorRPCRequest, HathorRPCResponse, GetBalanceParams, GetAddressParams, SendNanoContractTxParams } from '@/types/hathor';
+import { HathorRPCRequest, HathorRPCResponse, GetBalanceParams, GetAddressParams, SendNanoContractTxParams, SignOracleDataParams } from '@/types/hathor';
 import Client from '@walletconnect/sign-client';
 import { SessionTypes } from '@walletconnect/types';
+import { Network, config, getChainId } from '@/lib/config';
 
 type RequestFunction = <T = any>(method: string, params?: any) => Promise<T>;
 
@@ -9,18 +10,24 @@ export class HathorRPCService {
   private client: Client | undefined;
   private session: SessionTypes.Struct | undefined;
   private customRequest: RequestFunction | undefined;
+  private network: Network;
 
-  constructor(useMock: boolean = false, client?: Client, session?: SessionTypes.Struct, customRequest?: RequestFunction) {
+  constructor(useMock: boolean = false, client?: Client, session?: SessionTypes.Struct, customRequest?: RequestFunction, network: Network = config.defaultNetwork) {
     this.useMock = useMock;
     this.client = client;
     this.session = session;
     this.customRequest = customRequest;
+    this.network = network;
   }
 
   updateClientAndSession(client?: Client, session?: SessionTypes.Struct, customRequest?: RequestFunction) {
     this.client = client;
     this.session = session;
     this.customRequest = customRequest;
+  }
+
+  setNetwork(network: Network) {
+    this.network = network;
   }
 
   async request<T = any>(method: string, params?: any): Promise<T> {
@@ -46,7 +53,7 @@ export class HathorRPCService {
 
     try {
       const result = await this.client.request<T>({
-        chainId: 'hathor:testnet',
+        chainId: getChainId(this.network),
         topic: this.session.topic,
         request: {
           method,
@@ -77,6 +84,10 @@ export class HathorRPCService {
     return this.request('htr_sendNanoContractTx', params);
   }
 
+  async signOracleData(params: SignOracleDataParams): Promise<{ data: string; signature: string; oracle: string }> {
+    return this.request('htr_signOracleData', params);
+  }
+
   private async mockRequest<T>(method: string, params?: any): Promise<T> {
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -104,6 +115,13 @@ export class HathorRPCService {
           success: true,
           timestamp: Date.now(),
           nonce: Math.floor(Math.random() * 1000000),
+        } as T;
+
+      case 'htr_signOracleData':
+        return {
+          data: params?.data || 'mock-result',
+          signature: 'mock-signature-' + Math.random().toString(36).substring(2, 10),
+          oracle: '76a914043c203aa26e6c001243e01a4f84b9d0927bff6088ac',
         } as T;
 
       default:

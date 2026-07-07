@@ -1,64 +1,77 @@
 'use client';
 
-import { useHathor } from '@/contexts/HathorContext';
-import { useWallet } from '@/contexts/WalletContext';
+import Link from 'next/link';
 import Header from '@/components/Header';
-import GettingStartedGuide from '@/components/GettingStartedGuide';
-import ContractExample from '@/components/ContractExample';
-import { NetworkSelector } from '@/components/NetworkSelector';
-import { formatBalance } from '@/lib/utils';
+import MarketCard from '@/components/MarketCard';
+import { useMarkets } from '@/lib/useMarkets';
+import { marketStatus } from '@/lib/betContract';
 
 export default function Home() {
-  const { network, switchNetwork, isConnected } = useHathor();
-  const { balance, address } = useWallet();
+  const { markets, loading, error } = useMarkets();
+
+  const open = markets.filter((m) => m.state && marketStatus(m.state) === 'open');
+  const closed = markets.filter((m) => !m.state || marketStatus(m.state) !== 'open');
 
   return (
     <div className="min-h-screen bg-slate-900">
       <Header />
 
-      <main className="container mx-auto px-6 py-8 space-y-12">
-        <div className="flex justify-end items-center">
-          <NetworkSelector value={network} onChange={switchNetwork} disabled={isConnected} />
+      <main className="container mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-white">Markets</h2>
+            <p className="text-slate-400 mt-1">Bet on anything. Settled on Hathor.</p>
+          </div>
+          <Link
+            href="/create"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          >
+            + Create market
+          </Link>
         </div>
 
-        <GettingStartedGuide />
+        {loading && (
+          <div className="text-center py-20 text-slate-400">Loading markets…</div>
+        )}
 
-        {isConnected && address && (
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-4xl mx-auto">
-            <h3 className="text-lg font-semibold text-white mb-4">Connected Wallet Details</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Address:</span>
-                <span className="text-slate-200 font-mono">{address}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Balance:</span>
-                <span className="text-slate-200">
-                  {balance > 0n ? `${formatBalance(balance)} HTR` : 'Authorize wallet to view balance'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Network:</span>
-                <span className="text-slate-200 capitalize">{network}</span>
-              </div>
-            </div>
+        {error && !loading && (
+          <div className="text-center py-20 text-red-400">{error}</div>
+        )}
+
+        {!loading && !error && markets.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-slate-300 text-lg mb-2">No markets yet</p>
+            <p className="text-slate-500 mb-6">Be the first to create a prediction market.</p>
+            <Link
+              href="/create"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Create the first market
+            </Link>
           </div>
         )}
 
-        <ContractExample />
+        {open.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+            {open.map((m) => (
+              <MarketCard key={m.meta.ncId} market={m} />
+            ))}
+          </div>
+        )}
 
-        <footer className="text-center text-sm text-slate-400 py-8 border-t border-slate-700">
-          <p className="mb-2">Built on Hathor Network • Powered by Nano Contracts</p>
-          <p className="text-xs text-slate-500">
-            <a
-              href="https://hathor.network"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-slate-400 transition-colors"
-            >
-              Learn more about Hathor Network
-            </a>
-          </p>
+        {closed.length > 0 && (
+          <>
+            <h3 className="text-lg font-semibold text-slate-300 mb-4">Closed & resolved</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {closed.map((m) => (
+                <MarketCard key={m.meta.ncId} market={m} />
+              ))}
+            </div>
+          </>
+        )}
+
+        <footer className="text-center text-sm text-slate-400 py-8 mt-12 border-t border-slate-700">
+          <p>Halshi — prediction markets on Hathor nano contracts</p>
         </footer>
       </main>
     </div>

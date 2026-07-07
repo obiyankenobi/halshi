@@ -1,8 +1,8 @@
 export const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID';
 
 export const WALLETCONNECT_METADATA = {
-  name: 'Halshi Tmp',
-  description: 'Decentralized application on Hathor Network',
+  name: 'Halshi',
+  description: 'Prediction markets on Hathor Network',
   url: typeof window !== 'undefined' ? window.location.origin : 'https://hathor.network',
   icons: [typeof window !== 'undefined' ? `${window.location.origin}/icon.png` : 'https://hathor.network/favicon.ico'],
 };

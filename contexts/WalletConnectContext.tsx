@@ -7,6 +7,7 @@ import { Web3Modal } from '@web3modal/standalone';
 import { getSdkError } from '@walletconnect/utils';
 import { WALLETCONNECT_PROJECT_ID } from '@/lib/walletConnectConfig';
 import { initializeWalletConnectClient } from '@/lib/walletConnectClient';
+import { config, getChainId } from '@/lib/config';
 
 interface IWalletConnectContext {
   client: Client | undefined;
@@ -175,8 +176,9 @@ export function WalletConnectProvider({ children }: { children: ReactNode | Reac
               'htr_getUtxos',
               'htr_signWithAddress',
               'htr_sendNanoContractTx',
+              'htr_signOracleData',
             ],
-            chains: ['hathor:testnet'],
+            chains: [getChainId(config.defaultNetwork)],
             events: [],
           },
         };
