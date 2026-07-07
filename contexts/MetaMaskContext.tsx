@@ -2,7 +2,7 @@
 
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { HathorRPCService } from '@/lib/hathorRPC';
-import { config } from '@/lib/config';
+import { config, hathorNetworkNames } from '@/lib/config';
 
 interface IMetaMaskContext {
   address: string | null;
@@ -46,6 +46,21 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
   // Create RPC service instance configured for MetaMask
   const [rpcService] = useState(() => new HathorRPCService(config.useMockWallet, undefined, undefined, metamask_request));
 
+  /**
+   * The snap keeps its own persisted network (defaults to mainnet) and ignores
+   * the app's. Ask which network it is on and request a switch when it differs
+   * from the app's configured network — the snap shows a confirmation dialog.
+   */
+  const ensureSnapNetwork = useCallback(async () => {
+    const expected = hathorNetworkNames[config.defaultNetwork];
+    const netResult = await metamask_request('htr_getConnectedNetwork', {});
+    const current = (netResult?.response ?? netResult)?.network;
+    if (current && current !== expected) {
+      console.debug(`[metamask] snap on '${current}', requesting change to '${expected}'`);
+      await metamask_request('htr_changeNetwork', { network: current, newNetwork: expected });
+    }
+  }, [metamask_request]);
+
   // Check if MetaMask is installed
   useEffect(() => {
     const checkMetaMask = () => {
@@ -71,9 +86,12 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
         });
 
         if (snaps?.[SNAP_ID]) {
+          // Make sure the snap is on the app's network (may prompt)
+          await ensureSnapNetwork();
+
           // Get address from snap using RPC service
           const result = await rpcService.getAddress({
-            network: 'testnet',
+            network: hathorNetworkNames[config.defaultNetwork],
             type: 'index',
             index: 0
           });
@@ -91,7 +109,7 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
     };
 
     checkPersistedConnection();
-  }, [rpcService]);
+  }, [rpcService, ensureSnapNetwork]);
 
   const connect = useCallback(async () => {
     if (!window.ethereum) {
@@ -113,9 +131,12 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
         throw new Error('Failed to connect to Hathor Snap');
       }
 
+      // Switch the snap to the app's network if it is on a different one
+      await ensureSnapNetwork();
+
       // Get address from snap using RPC service
       const addressResult = await rpcService.getAddress({
-        network: 'testnet',
+        network: hathorNetworkNames[config.defaultNetwork],
         type: 'index',
         index: 0
       });
@@ -134,7 +155,7 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
       console.error('Failed to connect to MetaMask Snap:', error);
       throw new Error(error?.message || 'Failed to connect to MetaMask Snap');
     }
-  }, [rpcService]);
+  }, [rpcService, ensureSnapNetwork]);
 
   const disconnect = useCallback(async () => {
     setAddress(null);
