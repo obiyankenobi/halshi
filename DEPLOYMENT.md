@@ -76,7 +76,52 @@ your local chain + local `data/markets.db`. Start the production DB empty.
 
 ## 3. Running on your VPS
 
-### Option A — Docker (recommended)
+### Option A — pm2 (bare Node)
+
+Requires Node 20+ and pm2 (`npm i -g pm2`) on the VPS.
+
+```bash
+# e.g. under /opt
+git clone <your-repo> halshi && cd halshi
+npm ci
+
+# create the production env BEFORE building (build-time rule from §1!)
+cat > .env.local << 'EOF'
+NEXT_PUBLIC_DEFAULT_NETWORK=testnet
+NEXT_PUBLIC_BET_BLUEPRINT_ID=<blueprint id from §2>
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<your reown id>
+NEXT_PUBLIC_USE_MOCK_WALLET=false
+EOF
+
+npm run build
+
+pm2 start ecosystem.config.js   # serves on 127.0.0.1:3000
+pm2 save                        # persist the process list
+pm2 startup                     # print the command that enables pm2 on boot — run it
+```
+
+The repo ships `ecosystem.config.js`, which runs the Next server directly (`next start -p 3000`)
+with auto-restart. Useful commands:
+
+```bash
+pm2 status            # is it up?
+pm2 logs halshi       # tail logs
+pm2 restart halshi    # restart (e.g. after a rebuild)
+```
+
+**Deploying an update:**
+
+```bash
+cd /opt/halshi && git pull && npm ci && npm run build && pm2 restart halshi
+```
+
+(Any `NEXT_PUBLIC_*` change is picked up by the rebuild — editing `.env.local` alone does
+nothing until `npm run build` runs again.)
+
+The SQLite registry lands in `/opt/halshi/data/markets.db` — include it in your backups; it
+survives restarts and redeploys as long as you pull into the same directory.
+
+### Option B — Docker
 
 The repo's `Dockerfile` is a multi-stage standalone build (Debian-based for the better-sqlite3
 native module, non-root user, healthcheck, `/app/data` volume).
@@ -102,50 +147,6 @@ docker run -d --name halshi \
 
 To change any `NEXT_PUBLIC_*` value later: rebuild the image and recreate the container
 (`docker rm -f halshi` + the `docker run` again). The volume keeps the market registry.
-
-### Option B — bare Node + systemd
-
-Requires Node 20+ on the VPS.
-
-```bash
-git clone <your-repo> halshi && cd halshi
-npm ci
-
-# create the production env BEFORE building (build-time rule!)
-cat > .env.local << 'EOF'
-NEXT_PUBLIC_DEFAULT_NETWORK=testnet
-NEXT_PUBLIC_BET_BLUEPRINT_ID=<blueprint id>
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<your reown id>
-NEXT_PUBLIC_USE_MOCK_WALLET=false
-EOF
-
-npm run build
-npm start          # serves on :3000
-```
-
-As a service — `/etc/systemd/system/halshi.service`:
-
-```ini
-[Unit]
-Description=Halshi prediction markets
-After=network.target
-
-[Service]
-WorkingDirectory=/opt/halshi
-ExecStart=/usr/bin/npm start
-Restart=always
-User=halshi
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl enable --now halshi
-```
-
-The SQLite file lands in `/opt/halshi/data/markets.db` — include it in your backups.
 
 ### Reverse proxy + TLS (nginx)
 
