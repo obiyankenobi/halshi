@@ -29,6 +29,16 @@ const web3Modal = new Web3Modal({
   projectId: WALLETCONNECT_PROJECT_ID,
   themeMode: 'dark',
   walletConnectVersion: 2,
+  // The wallet listings are EVM wallets that cannot pair with Hathor —
+  // hide the explorer so the modal shows only the QR code.
+  enableExplorer: false,
+  themeVariables: {
+    '--w3m-accent-color': '#c8f53f',
+    '--w3m-accent-fill-color': '#0a0c10',
+    '--w3m-background-color': '#12151c',
+    '--w3m-font-family': 'var(--font-display), sans-serif',
+    '--w3m-logo-image-url': '/logo-dark.svg',
+  },
 });
 
 export function WalletConnectProvider({ children }: { children: ReactNode | ReactNode[] }) {
