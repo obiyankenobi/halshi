@@ -15,7 +15,7 @@ interface BetPanelProps {
 
 export default function BetPanel({ meta, state, onPlaced }: BetPanelProps) {
   const { isConnected } = useHathor();
-  const { address, rpcService, refreshBalance } = useWallet();
+  const { address, rpcService } = useWallet();
   const { addToast } = useToast();
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -70,7 +70,6 @@ export default function BetPanel({ meta, state, onPlaced }: BetPanelProps) {
       if (!confirmed) throw new Error('timed out waiting for confirmation');
       addToast(`Bet placed: ${amount} HTR on "${selected}"`, 'success');
       setAmount('');
-      refreshBalance();
       onPlaced();
     } catch (error: any) {
       if (error instanceof CancelledError) {

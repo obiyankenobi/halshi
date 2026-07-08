@@ -20,7 +20,7 @@ interface ClaimPanelProps {
 
 /** Shown once the market is resolved: displays and withdraws the caller's winnings. */
 export default function ClaimPanel({ meta, state, onClaimed }: ClaimPanelProps) {
-  const { address, rpcService, refreshBalance } = useWallet();
+  const { address, rpcService } = useWallet();
   const { addToast } = useToast();
   const [claimable, setClaimable] = useState<bigint | null>(null);
   const [busy, setBusy] = useState<'signing' | 'confirming' | null>(null);
@@ -54,7 +54,6 @@ export default function ClaimPanel({ meta, state, onClaimed }: ClaimPanelProps) 
       if (voided) throw new Error('transaction was voided by the network');
       if (!confirmed) throw new Error('timed out waiting for confirmation');
       addToast(`Claimed ${formatTokenAmount(claimable)} HTR`, 'success');
-      refreshBalance();
       onClaimed();
     } catch (error: any) {
       if (error instanceof CancelledError) {

@@ -6,7 +6,6 @@ import { ContractState } from '@/types/hathor';
 import { config, Network } from '@/lib/config';
 import { useWalletConnect } from './WalletConnectContext';
 import { useMetaMask } from './MetaMaskContext';
-import { useWallet } from './WalletContext';
 
 interface HathorContextType {
   isConnected: boolean;
@@ -25,7 +24,6 @@ const HathorContext = createContext<HathorContextType | undefined>(undefined);
 export function HathorProvider({ children }: { children: ReactNode }) {
   const walletConnect = useWalletConnect();
   const metaMask = useMetaMask();
-  const wallet = useWallet();
   const [address, setAddress] = useState<string | null>(null);
   const [network, setNetwork] = useState<Network>(config.defaultNetwork);
   const [contractStates, setContractStates] = useState<Record<string, ContractState>>({});
@@ -48,7 +46,6 @@ export function HathorProvider({ children }: { children: ReactNode }) {
       }
     } else {
       setAddress(null);
-      wallet.setBalance(0n);
     }
   }, [isConnected, network, walletConnect, metaMask]);
 
