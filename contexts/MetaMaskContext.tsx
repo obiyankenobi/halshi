@@ -3,6 +3,7 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { HathorRPCService } from '@/lib/hathorRPC';
 import { config, hathorNetworkNames } from '@/lib/config';
+import { getMetaMaskProvider } from '@/lib/metamaskProvider';
 
 interface IMetaMaskContext {
   address: string | null;
@@ -23,13 +24,16 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
   const [isConnected, setIsConnected] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
-  // Helper method to call MetaMask Snap and parse JSON response
+  // Helper method to call MetaMask Snap and parse JSON response.
+  // Uses EIP-6963 discovery: window.ethereum may belong to another wallet
+  // extension that cannot handle snap RPCs.
   const metamask_request = useCallback(async (method: string, params?: any): Promise<any> => {
-    if (!window.ethereum) {
-      throw new Error('MetaMask is not installed');
+    const provider = await getMetaMaskProvider();
+    if (!provider) {
+      throw new Error('MetaMask is not installed (or is disabled by another wallet extension)');
     }
 
-    const resultStr = await window.ethereum.request({
+    const resultStr = await provider.request({
       method: 'wallet_invokeSnap',
       params: {
         snapId: SNAP_ID,
@@ -61,27 +65,25 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
     }
   }, [metamask_request]);
 
-  // Check if MetaMask is installed
+  // Check if MetaMask is installed (via EIP-6963, not window.ethereum ownership)
   useEffect(() => {
-    const checkMetaMask = () => {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        setIsInstalled(true);
-      }
-    };
-    checkMetaMask();
+    getMetaMaskProvider().then((provider) => setIsInstalled(Boolean(provider)));
   }, []);
 
   // Check persisted connection on mount
   useEffect(() => {
     const checkPersistedConnection = async () => {
-      if (typeof window === 'undefined' || !window.ethereum) return;
+      if (typeof window === 'undefined') return;
 
       try {
         const walletType = localStorage.getItem('wallet_type');
         if (walletType !== 'metamask') return;
 
+        const provider = await getMetaMaskProvider();
+        if (!provider) return;
+
         // Check if snap is already connected
-        const snaps = await window.ethereum.request({
+        const snaps = await provider.request({
           method: 'wallet_getSnaps',
         });
 
@@ -112,13 +114,16 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
   }, [rpcService, ensureSnapNetwork]);
 
   const connect = useCallback(async () => {
-    if (!window.ethereum) {
-      throw new Error('MetaMask is not installed. Please install MetaMask extension.');
+    const provider = await getMetaMaskProvider();
+    if (!provider) {
+      throw new Error(
+        'MetaMask not found. Install the MetaMask extension — if it is installed, another wallet extension may be blocking it.'
+      );
     }
 
     try {
       // Request snap connection
-      const result = await window.ethereum.request({
+      const result = await provider.request({
         method: 'wallet_requestSnaps',
         params: {
           [SNAP_ID]: {
