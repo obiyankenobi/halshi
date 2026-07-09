@@ -5,6 +5,13 @@ import { Network, config, getChainId } from '@/lib/config';
 
 type RequestFunction = <T = any>(method: string, params?: any) => Promise<T>;
 
+/** Map raw wallet errors to messages that make sense to users. */
+function friendlyWalletError(message: string | undefined): string {
+  if (!message) return 'RPC request failed';
+  if (/not enough utxos/i.test(message)) return 'Not enough funds in the wallet';
+  return message;
+}
+
 export class HathorRPCService {
   private useMock: boolean;
   private client: Client | undefined;
@@ -44,7 +51,7 @@ export class HathorRPCService {
         return result;
       } catch (error: any) {
         console.error(`[hathorRPC] ← ${method} FAILED:`, error);
-        throw new Error(error?.message || 'RPC request failed');
+        throw new Error(friendlyWalletError(error?.message));
       }
     }
 
@@ -73,7 +80,7 @@ export class HathorRPCService {
       return result;
     } catch (error: any) {
       console.error(`[hathorRPC] ← ${method} FAILED:`, error);
-      throw new Error(error?.message || 'RPC request failed');
+      throw new Error(friendlyWalletError(error?.message));
     }
   }
 
