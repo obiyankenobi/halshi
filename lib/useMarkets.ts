@@ -8,6 +8,28 @@ export interface MarketWithState {
   state: MarketChainState | null;
 }
 
+/**
+ * Refresh when the next betting deadline passes, so an open page flips
+ * from "open" to "betting closed" without a manual reload. Deadlines more
+ * than a day away are ignored (nobody keeps a tab open that long, and
+ * setTimeout overflows past ~25 days).
+ */
+function useDeadlineRefresh(deadlines: number[], refresh: () => void) {
+  const key = deadlines.join(',');
+  useEffect(() => {
+    const nowSec = Date.now() / 1000;
+    const future = deadlines.filter((d) => d > nowSec);
+    if (future.length === 0) return;
+    const next = Math.min(...future);
+    // small buffer so the node's clock and block timestamp are past it too
+    const delayMs = (next - nowSec) * 1000 + 2000;
+    if (delayMs > 24 * 60 * 60 * 1000) return;
+    const timer = setTimeout(refresh, delayMs);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, refresh]);
+}
+
 export function useMarkets() {
   const [markets, setMarkets] = useState<MarketWithState[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +59,11 @@ export function useMarkets() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useDeadlineRefresh(
+    markets.map((m) => m.state?.dateLastBet ?? m.meta.dateLastBet),
+    refresh
+  );
 
   return { markets, loading, error, refresh };
 }
@@ -71,6 +98,8 @@ export function useMarket(ncId: string | null) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useDeadlineRefresh(state ? [state.dateLastBet] : [], refresh);
 
   return { meta, state, loading, error, refresh };
 }
