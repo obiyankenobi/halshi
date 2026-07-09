@@ -6,6 +6,7 @@ import { formatAddress } from '@/lib/utils';
 import { WalletConnectionModal } from './WalletConnectionModal';
 import Logo from './Logo';
 import CopyButton from './CopyButton';
+import NotificationBell from './NotificationBell';
 
 export default function Header() {
   const { isConnected, address, disconnectWallet } = useHathor();
@@ -30,6 +31,7 @@ export default function Header() {
 
           {isConnected ? (
             <div className="flex items-center gap-3">
+              <NotificationBell />
               <div className="flex items-center gap-2 px-4 py-2 bg-panel rounded-full border border-line">
                 <span className="w-1.5 h-1.5 bg-accent rounded-full"></span>
                 <span className="font-mono text-xs text-snow">{formatAddress(address || '')}</span>
