@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listMarkets, getMarket, insertMarket } from '@/lib/db';
 import { fetchBetContractState } from '@/lib/nodeApi.server';
 import { config } from '@/lib/config';
+import { LIMITS } from '@/lib/limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,15 +27,22 @@ export async function POST(request: NextRequest) {
   if (typeof ncId !== 'string' || !/^[0-9a-f]{64}$/.test(ncId)) {
     return NextResponse.json({ error: 'ncId must be a 64-char hex contract ID' }, { status: 400 });
   }
-  if (typeof question !== 'string' || question.trim().length < 3) {
-    return NextResponse.json({ error: 'question is required (min 3 chars)' }, { status: 400 });
+  if (typeof question !== 'string' || question.trim().length < 3 || question.trim().length > LIMITS.question) {
+    return NextResponse.json({ error: `question is required (3-${LIMITS.question} chars)` }, { status: 400 });
+  }
+  if (typeof description !== 'string' || description.trim().length > LIMITS.description) {
+    return NextResponse.json({ error: `description too long (max ${LIMITS.description} chars)` }, { status: 400 });
   }
   if (
     !Array.isArray(outcomes) ||
     outcomes.length < 2 ||
-    !outcomes.every((o) => typeof o === 'string' && o.trim().length > 0)
+    outcomes.length > LIMITS.maxOutcomes ||
+    !outcomes.every((o) => typeof o === 'string' && o.trim().length > 0 && o.trim().length <= LIMITS.outcome)
   ) {
-    return NextResponse.json({ error: 'outcomes must be an array of 2+ non-empty strings' }, { status: 400 });
+    return NextResponse.json(
+      { error: `outcomes must be 2-${LIMITS.maxOutcomes} non-empty strings of up to ${LIMITS.outcome} chars` },
+      { status: 400 }
+    );
   }
   const trimmedOutcomes = outcomes.map((o: string) => o.trim());
   if (new Set(trimmedOutcomes).size !== trimmedOutcomes.length) {

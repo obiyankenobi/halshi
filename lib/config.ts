@@ -22,6 +22,19 @@ export function getChainId(network: Network): string {
   return `hathor:${hathorNetworkNames[network]}`;
 }
 
+/** Public explorer tx page; localnet has no explorer, so link the node's raw tx API. */
+export function explorerTxUrl(txId: string, network?: Network): string {
+  const net = network ?? config.defaultNetwork;
+  switch (net) {
+    case 'mainnet':
+      return `https://explorer.mainnet.hathor.network/transaction/${txId}`;
+    case 'testnet':
+      return `https://explorer.testnet.hathor.network/transaction/${txId}`;
+    case 'localnet':
+      return `${config.hathorNodeUrls.localnet}/transaction?id=${txId}`;
+  }
+}
+
 export const config = {
   useMockWallet: process.env.NEXT_PUBLIC_USE_MOCK_WALLET === 'true',
   defaultNetwork: (process.env.NEXT_PUBLIC_DEFAULT_NETWORK || 'testnet') as Network,

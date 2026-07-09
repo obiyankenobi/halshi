@@ -88,10 +88,20 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
         });
 
         if (snaps?.[SNAP_ID]) {
-          // Make sure the snap is on the app's network (may prompt)
+          // Make sure the snap is on the app's network (silent unless a
+          // switch is actually needed)
           await ensureSnapNetwork();
 
-          // Get address from snap using RPC service
+          // Restore the address cached at connect time — asking the snap
+          // again (htr_getAddress) shows an approval dialog on every visit.
+          const cachedAddress = localStorage.getItem('address');
+          if (cachedAddress) {
+            setAddress(cachedAddress);
+            setIsConnected(true);
+            return;
+          }
+
+          // No cache (older session): ask the snap once and cache it
           const result = await rpcService.getAddress({
             network: hathorNetworkNames[config.defaultNetwork],
             type: 'index',
@@ -101,6 +111,7 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
           // MetaMask Snap returns response in nested format
           const addressData = (result as any)?.response || result;
           if (addressData?.address) {
+            localStorage.setItem('address', addressData.address);
             setAddress(addressData.address);
             setIsConnected(true);
           }

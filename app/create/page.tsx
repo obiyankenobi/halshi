@@ -7,6 +7,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useHathor } from '@/contexts/HathorContext';
 import { createMarket, waitForConfirmation } from '@/lib/betContract';
 import { CancelledError, cancellable } from '@/lib/utils';
+import { LIMITS } from '@/lib/limits';
 import { useToast } from '@/lib/toast';
 
 const inputStyles =
@@ -29,7 +30,8 @@ export default function CreateMarketPage() {
     setOutcomes((prev) => prev.map((o, i) => (i === index ? value : o)));
   };
 
-  const addOutcome = () => setOutcomes((prev) => [...prev, '']);
+  const addOutcome = () =>
+    setOutcomes((prev) => (prev.length < LIMITS.maxOutcomes ? [...prev, ''] : prev));
   const removeOutcome = (index: number) =>
     setOutcomes((prev) => (prev.length > 2 ? prev.filter((_, i) => i !== index) : prev));
 
@@ -130,6 +132,7 @@ export default function CreateMarketPage() {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Will HTR reach $1 by the end of 2026?"
+              maxLength={LIMITS.question}
               disabled={busy}
               className={inputStyles}
             />
@@ -144,6 +147,7 @@ export default function CreateMarketPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Resolution criteria, sources, details…"
               rows={3}
+              maxLength={LIMITS.description}
               disabled={busy}
               className={inputStyles}
             />
@@ -159,6 +163,7 @@ export default function CreateMarketPage() {
                     value={outcome}
                     onChange={(e) => setOutcome(index, e.target.value)}
                     placeholder={`Outcome ${index + 1}`}
+                    maxLength={LIMITS.outcome}
                     disabled={busy}
                     className={inputStyles}
                   />

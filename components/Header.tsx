@@ -5,6 +5,7 @@ import { useHathor } from '@/contexts/HathorContext';
 import { formatAddress } from '@/lib/utils';
 import { WalletConnectionModal } from './WalletConnectionModal';
 import Logo from './Logo';
+import CopyButton from './CopyButton';
 
 export default function Header() {
   const { isConnected, address, disconnectWallet } = useHathor();
@@ -32,6 +33,7 @@ export default function Header() {
               <div className="flex items-center gap-2 px-4 py-2 bg-panel rounded-full border border-line">
                 <span className="w-1.5 h-1.5 bg-accent rounded-full"></span>
                 <span className="font-mono text-xs text-snow">{formatAddress(address || '')}</span>
+                <CopyButton value={address || ''} label="Copy wallet address" />
               </div>
               <button
                 onClick={handleDisconnect}
