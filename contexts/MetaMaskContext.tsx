@@ -79,42 +79,54 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
         const walletType = localStorage.getItem('wallet_type');
         if (walletType !== 'metamask') return;
 
-        const provider = await getMetaMaskProvider();
-        if (!provider) return;
+        // Optimistic restore: show the cached session immediately so the
+        // header doesn't flash "Connect Wallet" during the (slow) MetaMask
+        // round-trips below. Downgraded if verification fails.
+        const cachedAddress = localStorage.getItem('address');
+        if (cachedAddress) {
+          setAddress(cachedAddress);
+          setIsConnected(true);
+        }
 
-        // Check if snap is already connected
+        const provider = await getMetaMaskProvider();
+        if (!provider) {
+          setAddress(null);
+          setIsConnected(false);
+          return;
+        }
+
+        // Verify the snap is still installed
         const snaps = await provider.request({
           method: 'wallet_getSnaps',
         });
+        if (!snaps?.[SNAP_ID]) {
+          localStorage.removeItem('wallet_type');
+          localStorage.removeItem('address');
+          setAddress(null);
+          setIsConnected(false);
+          return;
+        }
 
-        if (snaps?.[SNAP_ID]) {
-          // Make sure the snap is on the app's network (silent unless a
-          // switch is actually needed)
-          await ensureSnapNetwork();
+        // Make sure the snap is on the app's network (silent unless a
+        // switch is actually needed)
+        await ensureSnapNetwork();
 
-          // Restore the address cached at connect time — asking the snap
-          // again (htr_getAddress) shows an approval dialog on every visit.
-          const cachedAddress = localStorage.getItem('address');
-          if (cachedAddress) {
-            setAddress(cachedAddress);
-            setIsConnected(true);
-            return;
-          }
+        if (cachedAddress) return;
 
-          // No cache (older session): ask the snap once and cache it
-          const result = await rpcService.getAddress({
-            network: hathorNetworkNames[config.defaultNetwork],
-            type: 'index',
-            index: 0
-          });
+        // No cache (older session): ask the snap once and cache it.
+        // htr_getAddress shows an approval dialog, hence the cache.
+        const result = await rpcService.getAddress({
+          network: hathorNetworkNames[config.defaultNetwork],
+          type: 'index',
+          index: 0
+        });
 
-          // MetaMask Snap returns response in nested format
-          const addressData = (result as any)?.response || result;
-          if (addressData?.address) {
-            localStorage.setItem('address', addressData.address);
-            setAddress(addressData.address);
-            setIsConnected(true);
-          }
+        // MetaMask Snap returns response in nested format
+        const addressData = (result as any)?.response || result;
+        if (addressData?.address) {
+          localStorage.setItem('address', addressData.address);
+          setAddress(addressData.address);
+          setIsConnected(true);
         }
       } catch (error) {
         console.error('Failed to check persisted MetaMask connection:', error);
