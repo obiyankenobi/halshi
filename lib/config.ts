@@ -39,8 +39,8 @@ export const config = {
   useMockWallet: process.env.NEXT_PUBLIC_USE_MOCK_WALLET === 'true',
   defaultNetwork: (process.env.NEXT_PUBLIC_DEFAULT_NETWORK || 'testnet') as Network,
   hathorNodeUrls: {
-    'testnet': process.env.NEXT_PUBLIC_HATHOR_NODE_URL_TESTNET || 'https://node1.india.testnet.hathor.network/v1a',
-    'mainnet': process.env.NEXT_PUBLIC_HATHOR_NODE_URL_MAINNET || 'https://node1.mainnet.hathor.network/v1a',
+    'testnet': process.env.NEXT_PUBLIC_HATHOR_NODE_URL_TESTNET || 'https://node-partners.testnet.hathor.network/v1a',
+    'mainnet': process.env.NEXT_PUBLIC_HATHOR_NODE_URL_MAINNET || 'https://node-partners.mainnet.hathor.network/v1a',
     'localnet': process.env.NEXT_PUBLIC_HATHOR_NODE_URL_LOCALNET || 'http://localhost:49180/v1a',
   },
   contractIds: parseContractIds(),

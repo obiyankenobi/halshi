@@ -17,7 +17,7 @@ ways to run the app.
 | --- | --- | --- |
 | **Network** | `NEXT_PUBLIC_DEFAULT_NETWORK` env | `testnet` or `mainnet` (dev: `localnet`) |
 | **Bet blueprint ID** | `NEXT_PUBLIC_BET_BLUEPRINT_ID` env | The blueprint's tx hash on the *target network* (see §2). The localnet ID in `.env.local` will not exist on testnet/mainnet. |
-| **Node API URL** | `NEXT_PUBLIC_HATHOR_NODE_URL_TESTNET` / `_MAINNET` env | Only to override the defaults baked into `lib/config.ts` (`node1.india.testnet.hathor.network/v1a`, `node1.mainnet.hathor.network/v1a`). Point at your own node if you run one — public nodes are rate-limited and best-effort. |
+| **Node API URL** | `NEXT_PUBLIC_HATHOR_NODE_URL_TESTNET` / `_MAINNET` env | Only to override the defaults baked into `lib/config.ts` (`node-partners.testnet.hathor.network/v1a`, `node-partners.mainnet.hathor.network/v1a`). Point at your own node if you run one — public nodes are rate-limited and best-effort. |
 | **WalletConnect project ID** | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` env | Your ID from https://cloud.reown.com — same one works for all networks. |
 | **Mock wallet** | `NEXT_PUBLIC_USE_MOCK_WALLET` env | Must be `false` in production. |
 | **WalletConnect app metadata** | `lib/walletConnectConfig.ts` → `WALLETCONNECT_METADATA` | `url` auto-uses `window.location.origin`; the name/description/icon are what wallets display in the pairing prompt — update if you rebrand. |
@@ -40,7 +40,7 @@ the network users connect to.
 may already be published on testnet. Ask the node about a candidate ID:
 
 ```bash
-curl "https://node1.india.testnet.hathor.network/v1a/nc_blueprint/<blueprint_id>"
+curl "https://node-partners.testnet.hathor.network/v1a/nc_blueprint/<blueprint_id>"
 ```
 
 or browse the testnet explorer (https://explorer.testnet.hathor.network → Nano Contracts →
@@ -50,7 +50,7 @@ Blueprints). If it exists, put its ID in `NEXT_PUBLIC_BET_BLUEPRINT_ID` and you'
 address holding a little HTR (testnet: use the faucet; the tx itself costs only fees/weight):
 
 1. Configure wallet-headless (`config.js` or env, depending on install):
-   `network: 'testnet'`, `server: 'https://node1.india.testnet.hathor.network/v1a/'`.
+   `network: 'testnet'`, `server: 'https://node-partners.testnet.hathor.network/v1a/'`.
 2. Start your wallet: `POST /start` with `{"wallet-id": "publisher", "seed": "<24 words>"}`.
 3. Publish (the blueprint source is the Bet contract Python file):
 
