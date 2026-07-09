@@ -9,6 +9,8 @@ interface IMetaMaskContext {
   address: string | null;
   isConnected: boolean;
   isInstalled: boolean;
+  /** True until the persisted-session check has finished. */
+  isRestoring: boolean;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   request: <T = any>(method: string, params?: any) => Promise<T>;
@@ -23,6 +25,7 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
   const [address, setAddress] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(true);
 
   // Helper method to call MetaMask Snap and parse JSON response.
   // Uses EIP-6963 discovery: window.ethereum may belong to another wallet
@@ -130,6 +133,8 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
         }
       } catch (error) {
         console.error('Failed to check persisted MetaMask connection:', error);
+      } finally {
+        setIsRestoring(false);
       }
     };
 
@@ -214,11 +219,12 @@ export function MetaMaskProvider({ children }: { children: ReactNode | ReactNode
       address,
       isConnected,
       isInstalled,
+      isRestoring,
       connect,
       disconnect,
       request,
     }),
-    [address, isConnected, isInstalled, connect, disconnect, request]
+    [address, isConnected, isInstalled, isRestoring, connect, disconnect, request]
   );
 
   return <MetaMaskContext.Provider value={value}>{children}</MetaMaskContext.Provider>;

@@ -6,10 +6,17 @@ import { useMetaMask } from './MetaMaskContext';
 import { useWalletConnect } from './WalletConnectContext';
 import { config, getChainId } from '@/lib/config';
 
+export type ConnectionStatus = 'restoring' | 'connected' | 'disconnected';
+
 interface UnifiedWalletContextType {
   adapter: WalletAdapter | null;
   walletType: WalletType;
   setWalletType: (type: WalletType) => void;
+  /**
+   * 'restoring' while a persisted session may still come back — render
+   * neither the connect button nor the address until this settles.
+   */
+  status: ConnectionStatus;
 }
 
 const UnifiedWalletContext = createContext<UnifiedWalletContextType | undefined>(undefined);
@@ -18,6 +25,11 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
   const metaMask = useMetaMask();
   const walletConnect = useWalletConnect();
   const [walletType, setWalletTypeState] = useState<WalletType>(null);
+  // The stored type read once at mount — unlike walletType state (which the
+  // connection-sync effect resets while nothing is connected yet), this keeps
+  // telling us which wallet's restore we are waiting for.
+  const [storedType, setStoredType] = useState<WalletType>(null);
+  const [storedTypeLoaded, setStoredTypeLoaded] = useState(false);
 
   // Load wallet type from localStorage on mount
   useEffect(() => {
@@ -25,6 +37,8 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
     if (storedWalletType) {
       setWalletTypeState(storedWalletType);
     }
+    setStoredType(storedWalletType);
+    setStoredTypeLoaded(true);
   }, []);
 
   // Update wallet type when connections change
@@ -80,8 +94,20 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Undecided until localStorage is read and — when a session is stored —
+  // until that wallet finishes restoring it.
+  const status: ConnectionStatus = (() => {
+    if (adapter) return 'connected';
+    if (!storedTypeLoaded) return 'restoring';
+    if (storedType === 'metamask' && metaMask.isRestoring) return 'restoring';
+    if (storedType === 'walletconnect' && (walletConnect.isInitializing || !walletConnect.isRestored)) {
+      return 'restoring';
+    }
+    return 'disconnected';
+  })();
+
   return (
-    <UnifiedWalletContext.Provider value={{ adapter, walletType, setWalletType }}>
+    <UnifiedWalletContext.Provider value={{ adapter, walletType, setWalletType, status }}>
       {children}
     </UnifiedWalletContext.Provider>
   );

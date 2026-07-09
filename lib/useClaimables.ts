@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MarketMeta, getMaxWithdrawal } from './betContract';
-import { config } from './config';
 
 export interface Claimable {
   market: MarketMeta;
@@ -20,19 +19,6 @@ function loadSeen(address: string): Record<string, string> {
     return JSON.parse(localStorage.getItem(seenKey(address)) || '{}');
   } catch {
     return {};
-  }
-}
-
-/** Is the market resolved? Light single-field query. */
-async function isResolved(ncId: string): Promise<boolean> {
-  const base = config.hathorNodeUrls[config.defaultNetwork];
-  try {
-    const res = await fetch(`${base}/nano_contract/state?id=${ncId}&fields[]=final_result`);
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data.success && data.fields?.final_result?.value != null;
-  } catch {
-    return false;
   }
 }
 
@@ -57,12 +43,16 @@ export function useClaimables(address: string | null) {
       if (!res.ok) return;
       const { markets } = await res.json();
 
-      const found: Claimable[] = [];
-      for (const market of (markets as MarketMeta[]) ?? []) {
-        if (!(await isResolved(market.ncId))) continue;
-        const amount = await getMaxWithdrawal(market.ncId, address).catch(() => 0n);
-        if (amount > 0n) found.push({ market, amount });
-      }
+      // One view call per market, all in parallel. get_max_withdrawal on an
+      // unresolved market answers ResultNotAvailable, which maps to 0n — no
+      // separate resolved check needed.
+      const results = await Promise.all(
+        ((markets as MarketMeta[]) ?? []).map(async (market) => {
+          const amount = await getMaxWithdrawal(market.ncId, address).catch(() => 0n);
+          return amount > 0n ? { market, amount } : null;
+        })
+      );
+      const found = results.filter((c): c is Claimable => c !== null);
 
       setClaimables(found);
       const seen = loadSeen(address);

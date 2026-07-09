@@ -21,6 +21,8 @@ interface IWalletConnectContext {
   getFirstAddress: () => string;
   isConnected: boolean;
   isInitializing: boolean;
+  /** True once the client is ready and any persisted session was restored. */
+  isRestored: boolean;
 }
 
 const WalletConnectContext = createContext<IWalletConnectContext>({} as IWalletConnectContext);
@@ -263,8 +265,9 @@ export function WalletConnectProvider({ children }: { children: ReactNode | Reac
       setChains,
       isConnected: !!session,
       isInitializing,
+      isRestored: clientInitialized,
     }),
-    [pairings, accounts, chains, client, session, connect, disconnect, getFirstAddress, setChains, isInitializing]
+    [pairings, accounts, chains, client, session, connect, disconnect, getFirstAddress, setChains, isInitializing, clientInitialized]
   );
 
   return <WalletConnectContext.Provider value={value}>{children}</WalletConnectContext.Provider>;

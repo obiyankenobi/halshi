@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useHathor } from '@/contexts/HathorContext';
+import { useUnifiedWallet } from '@/contexts/UnifiedWalletContext';
 import { formatAddress } from '@/lib/utils';
 import { WalletConnectionModal } from './WalletConnectionModal';
 import Logo from './Logo';
@@ -9,7 +10,8 @@ import CopyButton from './CopyButton';
 import NotificationBell from './NotificationBell';
 
 export default function Header() {
-  const { isConnected, address, disconnectWallet } = useHathor();
+  const { address, disconnectWallet } = useHathor();
+  const { status } = useUnifiedWallet();
   const [showModal, setShowModal] = useState(false);
 
   const handleConnect = async () => {
@@ -29,7 +31,10 @@ export default function Header() {
             <span className="text-3xl font-bold tracking-tight text-snow">Halshi</span>
           </a>
 
-          {isConnected ? (
+          {status === 'restoring' ? (
+            // Undecided: hold the space without claiming either state
+            <div className="w-40 h-10 rounded-full bg-panel/60 border border-line animate-pulse" />
+          ) : status === 'connected' ? (
             <div className="flex items-center gap-3">
               <NotificationBell />
               <div className="flex items-center gap-2 px-4 py-2 bg-panel rounded-full border border-line">
