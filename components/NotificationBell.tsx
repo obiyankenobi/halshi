@@ -8,7 +8,7 @@ import { formatTokenAmount } from '@/lib/utils';
 
 export default function NotificationBell() {
   const { address } = useWallet();
-  const { claimables, unseenCount, markSeen } = useClaimables(address);
+  const { claimables, unseenCount, markSeen, dismiss, dismissAll } = useClaimables(address);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -57,17 +57,27 @@ export default function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 mt-2 w-80 bg-panel border border-line rounded-2xl shadow-xl shadow-black/40 overflow-hidden z-20">
-          <p className="microlabel text-fog px-4 pt-3 pb-2">rewards</p>
+          <div className="flex items-center justify-between px-4 pt-3 pb-2">
+            <p className="microlabel text-fog">rewards</p>
+            {claimables.length > 0 && (
+              <button
+                onClick={dismissAll}
+                className="microlabel text-fog/70 hover:text-snow transition-colors"
+              >
+                clear all
+              </button>
+            )}
+          </div>
           {claimables.length === 0 ? (
             <p className="px-4 pb-4 text-sm text-fog/60">Nothing to claim.</p>
           ) : (
             <ul className="divide-y divide-line/60">
               {claimables.map(({ market, amount }) => (
-                <li key={market.ncId}>
+                <li key={market.ncId} className="relative">
                   <Link
                     href={`/market/${market.ncId}`}
                     onClick={() => setOpen(false)}
-                    className="block px-4 py-3 hover:bg-inset/60 transition-colors"
+                    className="block px-4 py-3 pr-10 hover:bg-inset/60 transition-colors"
                   >
                     <p className="text-sm text-snow leading-snug line-clamp-2">
                       You won{' '}
@@ -76,6 +86,14 @@ export default function NotificationBell() {
                     </p>
                     <p className="microlabel text-fog/70 mt-1">click to claim →</p>
                   </Link>
+                  <button
+                    onClick={() => dismiss(market.ncId)}
+                    aria-label="Clear notification"
+                    title="Clear (does not withdraw)"
+                    className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded text-fog/60 hover:text-snow transition-colors"
+                  >
+                    ✕
+                  </button>
                 </li>
               ))}
             </ul>

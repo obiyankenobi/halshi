@@ -10,15 +10,26 @@ export interface Claimable {
 
 const POLL_INTERVAL_MS = 60_000;
 
-function seenKey(address: string): string {
-  return `halshi_seen_rewards:${address}`;
+// seen: amounts already counted by the badge (reset by opening the bell).
+// dismissed: entries the user cleared from the panel; they stay hidden until
+// claimed (the sweep stops finding them) or the amount changes.
+function storageKey(kind: 'seen' | 'dismissed', address: string): string {
+  return `halshi_${kind}_rewards:${address}`;
 }
 
-function loadSeen(address: string): Record<string, string> {
+function loadMap(kind: 'seen' | 'dismissed', address: string): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(seenKey(address)) || '{}');
+    return JSON.parse(localStorage.getItem(storageKey(kind, address)) || '{}');
   } catch {
     return {};
+  }
+}
+
+function saveMap(kind: 'seen' | 'dismissed', address: string, map: Record<string, string>) {
+  try {
+    localStorage.setItem(storageKey(kind, address), JSON.stringify(map));
+  } catch {
+    // storage full/blocked — the entry will just come back
   }
 }
 
@@ -54,9 +65,12 @@ export function useClaimables(address: string | null) {
       );
       const found = results.filter((c): c is Claimable => c !== null);
 
-      setClaimables(found);
-      const seen = loadSeen(address);
-      setUnseenCount(found.filter((c) => seen[c.market.ncId] !== c.amount.toString()).length);
+      const dismissed = loadMap('dismissed', address);
+      const visible = found.filter((c) => dismissed[c.market.ncId] !== c.amount.toString());
+
+      setClaimables(visible);
+      const seen = loadMap('seen', address);
+      setUnseenCount(visible.filter((c) => seen[c.market.ncId] !== c.amount.toString()).length);
     } finally {
       checking.current = false;
     }
@@ -79,20 +93,42 @@ export function useClaimables(address: string | null) {
     };
   }, [address, check]);
 
-  /** Mark everything currently claimable as seen (clears the badge). */
+  /** Mark everything currently claimable as seen (clears the badge only). */
   const markSeen = useCallback(() => {
     if (!address) return;
-    const seen = loadSeen(address);
+    const seen = loadMap('seen', address);
     for (const c of claimables) {
       seen[c.market.ncId] = c.amount.toString();
     }
-    try {
-      localStorage.setItem(seenKey(address), JSON.stringify(seen));
-    } catch {
-      // storage full/blocked — badge will just reappear
-    }
+    saveMap('seen', address, seen);
     setUnseenCount(0);
   }, [address, claimables]);
 
-  return { claimables, unseenCount, markSeen, refresh: check };
+  /** Clear one entry from the panel until it is claimed. */
+  const dismiss = useCallback(
+    (ncId: string) => {
+      if (!address) return;
+      const entry = claimables.find((c) => c.market.ncId === ncId);
+      if (!entry) return;
+      const dismissed = loadMap('dismissed', address);
+      dismissed[ncId] = entry.amount.toString();
+      saveMap('dismissed', address, dismissed);
+      setClaimables((prev) => prev.filter((c) => c.market.ncId !== ncId));
+    },
+    [address, claimables]
+  );
+
+  /** Clear all entries from the panel until they are claimed. */
+  const dismissAll = useCallback(() => {
+    if (!address) return;
+    const dismissed = loadMap('dismissed', address);
+    for (const c of claimables) {
+      dismissed[c.market.ncId] = c.amount.toString();
+    }
+    saveMap('dismissed', address, dismissed);
+    setClaimables([]);
+    setUnseenCount(0);
+  }, [address, claimables]);
+
+  return { claimables, unseenCount, markSeen, dismiss, dismissAll, refresh: check };
 }
