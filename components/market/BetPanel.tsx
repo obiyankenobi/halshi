@@ -13,6 +13,22 @@ interface BetPanelProps {
   onPlaced: () => void;
 }
 
+/** Polymarket-style celebration: confetti burst from the bet button. */
+async function celebrate(anchor: HTMLElement | null) {
+  const confetti = (await import('canvas-confetti')).default;
+  let origin = { x: 0.5, y: 0.6 };
+  if (anchor) {
+    const rect = anchor.getBoundingClientRect();
+    origin = {
+      x: (rect.left + rect.width / 2) / window.innerWidth,
+      y: (rect.top + rect.height / 2) / window.innerHeight,
+    };
+  }
+  const colors = ['#c8f53f', '#edf0f5', '#f5b93f', '#38bdf8', '#f472b6'];
+  confetti({ particleCount: 90, spread: 75, startVelocity: 42, origin, colors });
+  setTimeout(() => confetti({ particleCount: 50, spread: 110, startVelocity: 30, origin, colors }), 200);
+}
+
 export default function BetPanel({ meta, state, onPlaced }: BetPanelProps) {
   const { isConnected } = useHathor();
   const { address, rpcService } = useWallet();
@@ -21,7 +37,9 @@ export default function BetPanel({ meta, state, onPlaced }: BetPanelProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState<'signing' | 'confirming' | null>(null);
+  const [placed, setPlaced] = useState(false);
   const cancelRef = useRef<(() => void) | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   let amountCents: bigint | null = null;
   try {
@@ -68,6 +86,9 @@ export default function BetPanel({ meta, state, onPlaced }: BetPanelProps) {
       const { confirmed, voided } = await waitForConfirmation(txId);
       if (voided) throw new Error('transaction was voided by the network');
       if (!confirmed) throw new Error('timed out waiting for confirmation');
+      setPlaced(true);
+      celebrate(buttonRef.current);
+      setTimeout(() => setPlaced(false), 3000);
       addToast(`Bet placed: ${amount} HTR on "${selected}"`, 'success');
       setAmount('');
       onPlaced();
@@ -124,17 +145,24 @@ export default function BetPanel({ meta, state, onPlaced }: BetPanelProps) {
       )}
 
       <button
+        ref={buttonRef}
         onClick={handleBet}
-        disabled={busy !== null || !isConnected}
-        className="w-full py-3 bg-accent hover:bg-accent-dim disabled:opacity-40 disabled:pointer-events-none text-ink rounded-xl font-semibold transition-colors"
+        disabled={busy !== null || placed || !isConnected}
+        className={`w-full py-3 rounded-xl font-semibold transition-colors disabled:pointer-events-none ${
+          placed
+            ? 'bg-green-500 text-ink'
+            : 'bg-accent hover:bg-accent-dim disabled:opacity-40 text-ink'
+        }`}
       >
-        {busy === 'signing'
-          ? 'Waiting for wallet signature…'
-          : busy === 'confirming'
-            ? 'Waiting for confirmation…'
-            : isConnected
-              ? 'Place bet'
-              : 'Connect wallet to bet'}
+        {placed
+          ? '✓ Bet placed!'
+          : busy === 'signing'
+            ? 'Waiting for wallet signature…'
+            : busy === 'confirming'
+              ? 'Waiting for confirmation…'
+              : isConnected
+                ? 'Place bet'
+                : 'Connect wallet to bet'}
       </button>
 
       {busy === 'signing' && (
