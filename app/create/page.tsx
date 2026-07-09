@@ -198,7 +198,7 @@ export default function CreateMarketPage() {
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
               disabled={busy}
-              className={`${inputStyles} font-mono [color-scheme:dark]`}
+              className={`${inputStyles} sm:w-auto font-mono [color-scheme:dark]`}
             />
             <p className="text-xs text-fog/60 mt-1.5">No more bets are accepted after this time.</p>
           </div>
