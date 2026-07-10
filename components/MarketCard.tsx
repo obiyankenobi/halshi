@@ -57,8 +57,10 @@ export default function MarketCard({ market }: { market: MarketWithState }) {
                 <span className="font-mono text-xs text-fog ml-2 shrink-0">{outcomePercent(pool, total)}</span>
               </div>
               <div className="h-1 bg-inset rounded-full overflow-hidden">
+                {/* live markets get lime bars; resolved ones go neutral and
+                    only the winner's label carries the accent */}
                 <div
-                  className={`h-full rounded-full ${isWinner ? 'bg-accent' : 'bg-fog/40'}`}
+                  className={`h-full rounded-full ${status === 'resolved' ? 'bg-fog/40' : 'bg-accent'}`}
                   style={{ width: `${percent}%` }}
                 />
               </div>

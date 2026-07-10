@@ -117,7 +117,7 @@ export default function MarketPage() {
                       </div>
                       <div className="h-1.5 bg-inset rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${isWinner ? 'bg-accent' : 'bg-fog/40'}`}
+                          className={`h-full rounded-full ${status === 'resolved' ? 'bg-fog/40' : 'bg-accent'}`}
                           style={{ width: `${percent}%` }}
                         />
                       </div>
