@@ -8,6 +8,7 @@ import { WalletConnectionModal } from './WalletConnectionModal';
 import Logo from './Logo';
 import CopyButton from './CopyButton';
 import NotificationBell from './NotificationBell';
+import AddressMenu from './AddressMenu';
 
 export default function Header() {
   const { address, disconnectWallet } = useHathor();
@@ -28,26 +29,31 @@ export default function Header() {
         <div className="shell flex items-center justify-between py-4">
           <a href="/" className="flex items-center gap-3 group">
             <Logo size={40} className="group-hover:-translate-y-0.5 transition-transform duration-200" />
-            <span className="text-3xl font-bold tracking-tight text-snow">Halshi</span>
+            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-snow">Halshi</span>
           </a>
 
           {status === 'restoring' ? (
             // Undecided: hold the space without claiming either state
             <div className="w-40 h-10 rounded-full bg-panel/60 border border-line animate-pulse" />
           ) : status === 'connected' ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <NotificationBell />
-              <div className="flex items-center gap-2 px-4 py-2 bg-panel rounded-full border border-line">
-                <span className="w-1.5 h-1.5 bg-accent rounded-full"></span>
-                <span className="font-mono text-xs text-snow">{formatAddress(address || '')}</span>
-                <CopyButton value={address || ''} label="Copy wallet address" />
+              {/* Desktop: pill with copy + explicit disconnect */}
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="flex items-center gap-2 px-4 py-2 bg-panel rounded-full border border-line">
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full"></span>
+                  <span className="font-mono text-xs text-snow">{formatAddress(address || '')}</span>
+                  <CopyButton value={address || ''} label="Copy wallet address" />
+                </div>
+                <button
+                  onClick={handleDisconnect}
+                  className="px-4 py-2 text-sm text-fog hover:text-snow border border-line hover:border-fog rounded-full transition-colors"
+                >
+                  Disconnect
+                </button>
               </div>
-              <button
-                onClick={handleDisconnect}
-                className="px-4 py-2 text-sm text-fog hover:text-snow border border-line hover:border-fog rounded-full transition-colors"
-              >
-                Disconnect
-              </button>
+              {/* Mobile: everything behind the address menu */}
+              <AddressMenu address={address || ''} onDisconnect={handleDisconnect} className="sm:hidden" />
             </div>
           ) : (
             <button

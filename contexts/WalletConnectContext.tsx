@@ -35,6 +35,8 @@ const web3Modal = new Web3Modal({
   // hide the explorer so the modal shows only the QR code.
   enableExplorer: false,
   themeVariables: {
+    // must sit above the app's own dialogs
+    '--w3m-z-index': '3000',
     '--w3m-accent-color': '#c8f53f',
     '--w3m-accent-fill-color': '#0a0c10',
     '--w3m-background-color': '#12151c',

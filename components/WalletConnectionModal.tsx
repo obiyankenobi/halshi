@@ -27,24 +27,24 @@ export function WalletConnectionModal({ open, onOpenChange }: WalletConnectionMo
   }, [open]);
 
   const handleReownConnect = async () => {
+    // Close the chooser before the WalletConnect QR modal opens — on mobile
+    // the two sheets stack and fight for the viewport otherwise.
+    onOpenChange(false);
     try {
-      setIsConnecting(true);
-      setConnectingWallet('reown');
-      setError(null);
       await connectWalletConnect();
-      onOpenChange(false);
     } catch (error: any) {
       console.error('Failed to connect via Reown:', error);
+      if (error?.message?.includes('User closed the modal')) {
+        return; // user intentionally closed — not an error
+      }
+      // The chooser is closed, so surface the problem where it is visible
+      // and reopen the chooser for another attempt.
+      onOpenChange(true);
       if (error?.message?.includes('not initialized yet')) {
         setError('Wallet is initializing. Please wait a moment and try again.');
-      } else if (error?.message?.includes('User closed the modal')) {
-        setError(null); // User intentionally closed, don't show error
       } else {
         setError('Failed to connect. Please try again.');
       }
-    } finally {
-      setIsConnecting(false);
-      setConnectingWallet(null);
     }
   };
 
