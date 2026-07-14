@@ -27,6 +27,26 @@ interface IWalletConnectContext {
 
 const WalletConnectContext = createContext<IWalletConnectContext>({} as IWalletConnectContext);
 
+/**
+ * When a wallet is picked from the W3M list, WalletConnect stores it as
+ * WALLETCONNECT_DEEPLINK_CHOICE and fires its deep link on EVERY subsequent
+ * request. That is the right UX on a phone (jump into the wallet app), but on
+ * desktop it makes the browser try to launch a desktop app registered for the
+ * same URL scheme on each interaction. Strip the stored choice on non-mobile
+ * devices.
+ */
+function clearDeeplinkChoiceOnDesktop() {
+  if (typeof window === 'undefined') return;
+  const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (!isMobile) {
+    try {
+      localStorage.removeItem('WALLETCONNECT_DEEPLINK_CHOICE');
+    } catch {
+      // storage blocked — nothing to clean
+    }
+  }
+}
+
 const web3Modal = new Web3Modal({
   projectId: WALLETCONNECT_PROJECT_ID,
   themeMode: 'dark',
@@ -86,6 +106,10 @@ export function WalletConnectProvider({ children }: { children: ReactNode | Reac
     setSession(_session);
     setChains(allNamespaceChains);
     setAccounts(allNamespaceAccounts);
+
+    // Pairing may have stored a deep-link choice (wallet tile tap) — drop it
+    // on desktop so requests don't try to launch a local app.
+    clearDeeplinkChoiceOnDesktop();
 
     // Store wallet type and address in localStorage
     localStorage.setItem('wallet_type', 'walletconnect');
@@ -166,6 +190,10 @@ export function WalletConnectProvider({ children }: { children: ReactNode | Reac
   }, [client, clientInitialized, subscribeToEvents, checkPersistedState]);
 
   useEffect(() => {
+    // Clean up any deep-link choice left over from previous sessions before
+    // the client is even ready (it is read at request time).
+    clearDeeplinkChoiceOnDesktop();
+
     if (initializationAttempted.current || isInitializing || client) return;
 
     initializationAttempted.current = true;
