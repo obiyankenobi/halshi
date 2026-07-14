@@ -51,6 +51,11 @@ function getDb(): Database.Database {
       created_at INTEGER NOT NULL
     )
   `);
+  // Migration: banned flag (also applied by scripts/ban-market.mjs)
+  const columns = db.prepare("PRAGMA table_info(markets)").all() as { name: string }[];
+  if (!columns.some((c) => c.name === 'banned')) {
+    db.exec('ALTER TABLE markets ADD COLUMN banned INTEGER NOT NULL DEFAULT 0');
+  }
   return db;
 }
 
@@ -70,14 +75,20 @@ function rowToMarket(row: MarketRow): Market {
 
 export function listMarkets(): Market[] {
   const rows = getDb()
-    .prepare('SELECT * FROM markets ORDER BY created_at DESC')
+    .prepare('SELECT * FROM markets WHERE banned = 0 ORDER BY created_at DESC')
     .all() as MarketRow[];
   return rows.map(rowToMarket);
 }
 
+/** Registration check that sees banned rows too (bans must not be re-registerable). */
+export function marketExists(ncId: string): boolean {
+  return Boolean(getDb().prepare('SELECT 1 FROM markets WHERE nc_id = ?').get(ncId));
+}
+
+/** Banned markets behave as if they were never registered. */
 export function getMarket(ncId: string): Market | null {
   const row = getDb()
-    .prepare('SELECT * FROM markets WHERE nc_id = ?')
+    .prepare('SELECT * FROM markets WHERE nc_id = ? AND banned = 0')
     .get(ncId) as MarketRow | undefined;
   return row ? rowToMarket(row) : null;
 }

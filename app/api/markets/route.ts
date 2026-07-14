@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listMarkets, getMarket, insertMarket } from '@/lib/db';
+import { listMarkets, marketExists, insertMarket } from '@/lib/db';
 import { fetchBetContractState } from '@/lib/nodeApi.server';
 import { config } from '@/lib/config';
 import { LIMITS } from '@/lib/limits';
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'outcomes must be unique' }, { status: 400 });
   }
 
-  if (getMarket(ncId)) {
+  if (marketExists(ncId)) {
     return NextResponse.json({ error: 'market already registered' }, { status: 409 });
   }
 
