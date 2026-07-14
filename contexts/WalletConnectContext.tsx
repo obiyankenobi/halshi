@@ -45,6 +45,9 @@ const web3Modal = new Web3Modal({
       links: { native: 'hathorwallet://', universal: '' },
     },
   ],
+  walletImages: {
+    hathorWallet: '/hathor-wallet.png',
+  },
   themeVariables: {
     // must sit above the app's own dialogs
     '--w3m-z-index': '3000',
