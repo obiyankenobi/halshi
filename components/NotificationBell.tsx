@@ -2,13 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useWallet } from '@/contexts/WalletContext';
 import { useClaimables } from '@/lib/useClaimables';
 import { formatTokenAmount } from '@/lib/utils';
 
 export default function NotificationBell() {
   const { address } = useWallet();
-  const { claimables, unseenCount, markSeen, dismiss, dismissAll } = useClaimables(address);
+  // The full sweep (one node call per market) only runs on the homepage;
+  // other pages render the bell from the cached result.
+  const pathname = usePathname();
+  const { claimables, unseenCount, markSeen, dismiss, dismissAll } = useClaimables(
+    address,
+    pathname === '/'
+  );
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 

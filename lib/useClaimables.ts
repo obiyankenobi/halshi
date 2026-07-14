@@ -13,7 +13,9 @@ const POLL_INTERVAL_MS = 60_000;
 // seen: amounts already counted by the badge (reset by opening the bell).
 // dismissed: entries the user cleared from the panel; they stay hidden until
 // claimed (the sweep stops finding them) or the amount changes.
-function storageKey(kind: 'seen' | 'dismissed', address: string): string {
+// claimables: cache of the last sweep result so pages that don't sweep
+// (everything except the homepage) can still show the bell.
+function storageKey(kind: 'seen' | 'dismissed' | 'claimables', address: string): string {
   return `halshi_${kind}_rewards:${address}`;
 }
 
@@ -33,15 +35,46 @@ function saveMap(kind: 'seen' | 'dismissed', address: string, map: Record<string
   }
 }
 
+function loadCachedClaimables(address: string): Claimable[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(storageKey('claimables', address)) || '[]');
+    return (raw as { market: MarketMeta; amount: string }[]).map((c) => ({
+      market: c.market,
+      amount: BigInt(c.amount),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedClaimables(address: string, claimables: Claimable[]) {
+  try {
+    localStorage.setItem(
+      storageKey('claimables', address),
+      JSON.stringify(claimables.map((c) => ({ market: c.market, amount: c.amount.toString() })))
+    );
+  } catch {
+    // storage full/blocked — other pages will just show stale/empty
+  }
+}
+
+function countUnseen(address: string, claimables: Claimable[]): number {
+  const seen = loadMap('seen', address);
+  return claimables.filter((c) => seen[c.market.ncId] !== c.amount.toString()).length;
+}
+
 /**
  * Claimable winnings for the connected address across all registered markets.
  *
  * A market owes the address money when it is resolved and the contract's
  * get_max_withdrawal view is positive — the view already subtracts prior
  * withdrawals, so claiming makes the item disappear on the next check.
- * Polls while the tab is open and re-checks on window focus.
+ *
+ * The sweep costs one node view call per market, so only the homepage runs
+ * it (`active`), once per minute. Everywhere else the bell renders from the
+ * cached result of the last sweep — no network traffic.
  */
-export function useClaimables(address: string | null) {
+export function useClaimables(address: string | null, active: boolean) {
   const [claimables, setClaimables] = useState<Claimable[]>([]);
   const [unseenCount, setUnseenCount] = useState(0);
   const checking = useRef(false);
@@ -68,30 +101,33 @@ export function useClaimables(address: string | null) {
       const dismissed = loadMap('dismissed', address);
       const visible = found.filter((c) => dismissed[c.market.ncId] !== c.amount.toString());
 
+      saveCachedClaimables(address, visible);
       setClaimables(visible);
-      const seen = loadMap('seen', address);
-      setUnseenCount(visible.filter((c) => seen[c.market.ncId] !== c.amount.toString()).length);
+      setUnseenCount(countUnseen(address, visible));
     } finally {
       checking.current = false;
     }
   }, [address]);
 
-  // initial check + poll + focus refresh
+  // Restore the last sweep result for instant display (all pages).
   useEffect(() => {
     if (!address) {
       setClaimables([]);
       setUnseenCount(0);
       return;
     }
+    const cached = loadCachedClaimables(address);
+    setClaimables(cached);
+    setUnseenCount(countUnseen(address, cached));
+  }, [address]);
+
+  // The sweep itself: homepage only, once per minute.
+  useEffect(() => {
+    if (!address || !active) return;
     check();
     const interval = setInterval(check, POLL_INTERVAL_MS);
-    const onFocus = () => check();
-    window.addEventListener('focus', onFocus);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [address, check]);
+    return () => clearInterval(interval);
+  }, [address, active, check]);
 
   /** Mark everything currently claimable as seen (clears the badge only). */
   const markSeen = useCallback(() => {
@@ -113,7 +149,9 @@ export function useClaimables(address: string | null) {
       const dismissed = loadMap('dismissed', address);
       dismissed[ncId] = entry.amount.toString();
       saveMap('dismissed', address, dismissed);
-      setClaimables((prev) => prev.filter((c) => c.market.ncId !== ncId));
+      const remaining = claimables.filter((c) => c.market.ncId !== ncId);
+      saveCachedClaimables(address, remaining);
+      setClaimables(remaining);
     },
     [address, claimables]
   );
@@ -126,6 +164,7 @@ export function useClaimables(address: string | null) {
       dismissed[c.market.ncId] = c.amount.toString();
     }
     saveMap('dismissed', address, dismissed);
+    saveCachedClaimables(address, []);
     setClaimables([]);
     setUnseenCount(0);
   }, [address, claimables]);
