@@ -34,6 +34,17 @@ const web3Modal = new Web3Modal({
   // The wallet listings are EVM wallets that cannot pair with Hathor —
   // hide the explorer so the modal shows only the QR code.
   enableExplorer: false,
+  // On mobile user-agents W3M opens a wallet-list view instead of the QR;
+  // with the explorer disabled that list is empty and the sheet collapses.
+  // Register the Hathor mobile wallet as a custom entry: tapping it deep-links
+  // hathorwallet://wc?uri=<pairing-uri>, which the wallet handles natively.
+  mobileWallets: [
+    {
+      id: 'hathorWallet',
+      name: 'Hathor Wallet',
+      links: { native: 'hathorwallet://', universal: '' },
+    },
+  ],
   themeVariables: {
     // must sit above the app's own dialogs
     '--w3m-z-index': '3000',

@@ -88,7 +88,8 @@ export default function MarketPage() {
           </MetaItem>
           <MetaItem label="contract">
             <span className="inline-flex items-center gap-1.5">
-              {`${meta.ncId.slice(0, 8)}...${meta.ncId.slice(-8)}`}
+              <span className="sm:hidden">{`${meta.ncId.slice(0, 6)}...${meta.ncId.slice(-6)}`}</span>
+              <span className="hidden sm:inline">{`${meta.ncId.slice(0, 8)}...${meta.ncId.slice(-8)}`}</span>
               <CopyButton value={meta.ncId} label="Copy contract ID" />
             </span>
           </MetaItem>
