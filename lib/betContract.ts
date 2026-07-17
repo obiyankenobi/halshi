@@ -194,6 +194,106 @@ function rpcNetworkName(network: Network = config.defaultNetwork): string {
   return hathorNetworkNames[network];
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Some wallets (observed with the mobile wallet over WalletConnect) sign and
+ * push the transaction but fail to deliver the response — the dapp's promise
+ * either rejects with an empty error or never settles at all. In both cases
+ * the transaction usually exists on-chain, so we recover by finding it in the
+ * contract history instead of stranding the user in a busy state.
+ */
+function isOpaqueRpcError(error: any): boolean {
+  const msg = String(error?.message ?? '');
+  return msg === '' || msg === 'RPC request failed' || msg === '{}';
+}
+
+async function findRecentContractTx(
+  ncId: string,
+  match: { method: string; caller: string; sinceTs: number },
+  network: Network = config.defaultNetwork
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${nodeUrl(network)}/nano_contract/history?id=${ncId}&count=20`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    for (const tx of data.history ?? []) {
+      if (
+        tx.nc_method === match.method &&
+        tx.nc_address === match.caller &&
+        tx.timestamp >= match.sinceTs &&
+        !tx.is_voided
+      ) {
+        return tx.hash;
+      }
+    }
+  } catch {
+    // node hiccups are fine while polling
+  }
+  return null;
+}
+
+// Give the wallet this long before starting to look for the tx on-chain…
+const WALLET_SOFT_TIMEOUT_MS = 30_000;
+// …and give up entirely after this long without wallet response or on-chain tx.
+const RECOVERY_TOTAL_MS = 180_000;
+const RECOVERY_POLL_MS = 5_000;
+
+async function sendWithHistoryRecovery(
+  rpc: HathorRPCService,
+  txParams: Parameters<HathorRPCService['sendNanoContractTx']>[0],
+  recovery: { ncId: string; method: string; caller: string },
+  network: Network = config.defaultNetwork
+): Promise<string> {
+  // margin for clock skew between browser and node
+  const sinceTs = Math.floor(Date.now() / 1000) - 60;
+
+  let settled = false;
+  let walletHash: string | null = null;
+  let walletError: any = null;
+  rpc
+    .sendNanoContractTx(txParams)
+    .then((result) => {
+      walletHash = result?.hash ?? result?.response?.hash ?? null;
+      settled = true;
+    })
+    .catch((error) => {
+      walletError = error;
+      settled = true;
+    });
+
+  const start = Date.now();
+
+  // Phase 1: give the wallet a fair chance to answer.
+  while (!settled && Date.now() - start < WALLET_SOFT_TIMEOUT_MS) {
+    await sleep(500);
+  }
+  if (walletHash) return walletHash;
+  if (walletError && !isOpaqueRpcError(walletError)) throw walletError; // real rejection
+
+  // Phase 2: wallet hung or failed opaquely — the tx may exist anyway.
+  console.warn(
+    `[betContract] no usable wallet response for ${recovery.method} after ${Math.round((Date.now() - start) / 1000)}s; watching contract history for the tx…`
+  );
+  while (Date.now() - start < RECOVERY_TOTAL_MS) {
+    if (walletHash) return walletHash;
+    if (walletError && !isOpaqueRpcError(walletError)) throw walletError;
+    const recovered = await findRecentContractTx(recovery.ncId, { method: recovery.method, caller: recovery.caller, sinceTs }, network);
+    if (recovered) {
+      console.warn(`[betContract] recovered ${recovery.method} tx from history: ${recovered}`);
+      return recovered;
+    }
+    await sleep(RECOVERY_POLL_MS);
+  }
+
+  if (walletError) throw walletError;
+  throw new Error(
+    'No response from the wallet. If the transaction shows in your wallet history, it may still confirm — refresh this page in a moment.'
+  );
+}
+
 /**
  * Create a new market: initialize a Bet contract with the creator as oracle.
  * Returns the transaction hash, which is the new contract's nc_id.
@@ -211,14 +311,25 @@ export async function createMarket(
     throw new Error('NEXT_PUBLIC_BET_BLUEPRINT_ID is not configured');
   }
   const oracleScript = await p2pkhScriptFromAddress(params.oracleAddress);
-  const result = await rpc.sendNanoContractTx({
-    network: rpcNetworkName(params.network),
-    method: 'initialize',
-    blueprint_id: config.betBlueprintId,
-    args: [oracleScript, params.tokenUid ?? HTR_TOKEN, params.dateLastBet],
-    actions: [],
-    push_tx: true,
-  });
+  let result: any;
+  try {
+    result = await rpc.sendNanoContractTx({
+      network: rpcNetworkName(params.network),
+      method: 'initialize',
+      blueprint_id: config.betBlueprintId,
+      args: [oracleScript, params.tokenUid ?? HTR_TOKEN, params.dateLastBet],
+      actions: [],
+      push_tx: true,
+    });
+  } catch (error: any) {
+    // No nc_id exists yet, so history-based recovery is impossible here.
+    if (isOpaqueRpcError(error)) {
+      throw new Error(
+        'The wallet reported an error, but the transaction may still have been sent — check the wallet history before retrying, or you may create the market twice.'
+      );
+    }
+    throw error;
+  }
   const hash = result?.hash ?? result?.response?.hash;
   if (!hash) throw new Error('wallet did not return a transaction hash');
   return hash;
@@ -236,23 +347,25 @@ export async function placeBet(
     network?: Network;
   }
 ): Promise<string> {
-  const result = await rpc.sendNanoContractTx({
-    network: rpcNetworkName(params.network),
-    method: 'bet',
-    nc_id: params.ncId,
-    args: [params.address, params.outcome],
-    actions: [
-      {
-        type: 'deposit',
-        token: params.tokenUid ?? HTR_TOKEN,
-        amount: params.amountCents.toString(),
-      },
-    ],
-    push_tx: true,
-  });
-  const hash = result?.hash ?? result?.response?.hash;
-  if (!hash) throw new Error('wallet did not return a transaction hash');
-  return hash;
+  return sendWithHistoryRecovery(
+    rpc,
+    {
+      network: rpcNetworkName(params.network),
+      method: 'bet',
+      nc_id: params.ncId,
+      args: [params.address, params.outcome],
+      actions: [
+        {
+          type: 'deposit',
+          token: params.tokenUid ?? HTR_TOKEN,
+          amount: params.amountCents.toString(),
+        },
+      ],
+      push_tx: true,
+    },
+    { ncId: params.ncId, method: 'bet', caller: params.address },
+    params.network
+  );
 }
 
 /**
@@ -293,17 +406,19 @@ export async function resolveMarket(
     );
   }
 
-  const result = await rpc.sendNanoContractTx({
-    network: rpcNetworkName(params.network),
-    method: 'set_result',
-    nc_id: params.ncId,
-    args: [signedData],
-    actions: [],
-    push_tx: true,
-  });
-  const hash = result?.hash ?? result?.response?.hash;
-  if (!hash) throw new Error('wallet did not return a transaction hash');
-  return hash;
+  return sendWithHistoryRecovery(
+    rpc,
+    {
+      network: rpcNetworkName(params.network),
+      method: 'set_result',
+      nc_id: params.ncId,
+      args: [signedData],
+      actions: [],
+      push_tx: true,
+    },
+    { ncId: params.ncId, method: 'set_result', caller: params.oracleAddress },
+    params.network
+  );
 }
 
 /** Withdraw winnings after the market is resolved. */
@@ -317,24 +432,26 @@ export async function claimWinnings(
     network?: Network;
   }
 ): Promise<string> {
-  const result = await rpc.sendNanoContractTx({
-    network: rpcNetworkName(params.network),
-    method: 'withdraw',
-    nc_id: params.ncId,
-    args: [],
-    actions: [
-      {
-        type: 'withdrawal',
-        token: params.tokenUid ?? HTR_TOKEN,
-        amount: params.amountCents.toString(),
-        address: params.address,
-      },
-    ],
-    push_tx: true,
-  });
-  const hash = result?.hash ?? result?.response?.hash;
-  if (!hash) throw new Error('wallet did not return a transaction hash');
-  return hash;
+  return sendWithHistoryRecovery(
+    rpc,
+    {
+      network: rpcNetworkName(params.network),
+      method: 'withdraw',
+      nc_id: params.ncId,
+      args: [],
+      actions: [
+        {
+          type: 'withdrawal',
+          token: params.tokenUid ?? HTR_TOKEN,
+          amount: params.amountCents.toString(),
+          address: params.address,
+        },
+      ],
+      push_tx: true,
+    },
+    { ncId: params.ncId, method: 'withdraw', caller: params.address },
+    params.network
+  );
 }
 
 export type MarketStatus = 'open' | 'closed' | 'resolved';
